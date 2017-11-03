@@ -1,0 +1,24 @@
+{rxlist: all,
+latlim: [22,50],
+lonlim: [-130,-60], 
+sv: all,
+
+decimate: ,
+elevation_mask: 30,
+Ts: 30,
+ 
+sTEC: true,
+vTEC: false,
+RES: true,
+timelist: [[0,2], [2,4], [4,6], [6,8], [8,10], [10,12], [12,14], [14,16], [16,18], [18,20], [20,22], [22,24]], 
+los_clobber: 0, 
+clobber_mode: 0,
+
+tec_interpolate: true,
+
+plot: false,
+
+save: true,
+save_folder: 232/,
+fn_prefix: residuals
+}
