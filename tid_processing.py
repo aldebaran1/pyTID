@@ -19,7 +19,6 @@ from argparse import ArgumentParser
 DATADIR = '/media/smrak/Eclipse2017/Eclipse/cors/'
 NAVDIR = '/media/smrak/Eclipse2017/Eclipse/nav/'
 SAVEDIR = '/media/smrak/Eclipse2017/Eclipse/hdf/'
-parallel = False
 
 def plotLOS(t,y, td=False, title='', save=False):
     if not td:
@@ -32,6 +31,9 @@ def plotLOS(t,y, td=False, title='', save=False):
     plt.close(fig)
     
 def plotTecRes(Tt, TEC, Tr, RES, polynom=None, td=False,  title='', save=False):
+    """
+    
+    """
     if not td:
         try:
             tt = [datetime.datetime.utcfromtimestamp(i) for i in Tt]
@@ -90,8 +92,15 @@ def _getTEC(data, sv=[], navfile='', yamlfile='', timelim=None,
     
     return t_corr, tec, lat, lon
 
-
+# ---------------------------------------------------------------------------- #
 def individualSite(rx='', RxBias=False, polynom_order=None):
+    """
+    Sebastijan Mrak
+    The function takes a set of global variables, computes the lat-lon-residuals
+    for each SV in list and returns 4 NP arrays of time, lat, lon, res for all
+    lines of sight. The funstion is designed to be used with multi-threading or
+    multi-processing loops. The only in-function argument is receiver name as str.
+    """
     
     global sTEC, timelim, day, year, RES, los_clobber, clobber_mode
     global sv, vTEC, plot, save, interpolate, el_mask, decimate, Ts
@@ -325,9 +334,19 @@ if __name__ == '__main__':
         rxlist = stream.get('rxlist')
         latlim = stream.get('latlim')
         lonlim = stream.get('lonlim')
+        rxstart = stream.get('rxstart')
         if rxlist == 'all':
             rx, rxpos = ec.getRxListCoordinates()
             rxlist, rxl_positions = ec.rxFilter(rx, rxpos, latlim=latlim, lonlim=lonlim)
+            if rxstart is not None:
+                ix = np.where(rxlist == rxstart)[0]
+#                print (rxlist.shape[0])
+#                print (rxstart)
+#                print (ix[0])
+                rxlist = rxlist[ix[0]:]
+        print ('First receiver: ', rxlist[0])
+        print ('All stations: ', rxlist.shape[0])
+            
         interpolate = stream.get('tec_interpolate')
         los_clobber = stream.get('los_clobber')
         clobber_mode = stream.get('clobber_mode')
@@ -350,6 +369,7 @@ if __name__ == '__main__':
         Ts = stream.get('Ts')
         
         for rx in rxlist:
+            print (rx)
             if P.mode == 'test':
                 t, r, lat, lon = individualSite(rx=rx)
                 if save:
@@ -357,7 +377,7 @@ if __name__ == '__main__':
             elif P.mode == 'parallel':
                 p = multiprocessing.Process(target=parallelHandler, args=(rx,))
                 p.start()
-                p.join()
+                p.join(50)
             else:
                 raise ('Enter -m argument, either "test" or "parallel"')
     except Exception as e:
