@@ -1,0 +1,15 @@
+{
+el_mask: 30,
+Ts: 30,
+leap_seconds: 17,
+latlim: [20, 50],
+lonlim: [-140, -60],
+
+rxlist: /media/smrak/Eclipse2017/mstid/list2180.h5,
+savefn: /media/smrak/Eclipse2017/mstid/hdf/mstid2016_218.h5,
+datadir: /media/smrak/Eclipse2017/mstid/,
+navdir: /media/smrak/Eclipse2017/mstid/nav/,
+
+processing: normal
+}
+
