@@ -1,0 +1,21 @@
+{
+fillpixel_iter: 2,
+skip: 3,
+projection: merc,
+latlim: [20, 55],
+lonlim: [-130, -60],
+clim: [-0.1, 0.1],
+#position: [-104.02388889, 30.66972222], McDonald Obs
+#position: [45.9, 11.5],
+
+imagetype: contourf,
+
+maplonlim: [-135, -65],
+maplatlim: [20, 55],
+parallels: [10,20,30,40,50,60,70],
+meridians: [-160,-120,-100,-80,-60,-40],
+
+datafn: /media/smrak/Eclipse2017/Eclipse/hdf/eclipse/single232_02_130_60.h5,
+savedir: /media/smrak/Eclipse2017/Eclipse/images/232/
+
+}

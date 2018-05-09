@@ -1,0 +1,31 @@
+{
+# Map
+figure_size: [12,8], # In inches!
+background_color: 'gray',
+border_color: '#006600', #soft green
+grid_color: 'w',
+grid_linestyle: '--',
+grid_linewidth: 0.5,
+terrain: False,
+states: False,
+
+# Image
+image_type: contourf,
+cmap: jet,
+image_nlevels: 40,
+
+# Marker params
+marker_color: m,
+marker: x,
+marker_size: 15,
+market_width: 3,
+
+# Eclipse only
+totality: False, #Line of totality from nasa webpage
+penumbra: False, #Contours of penumbra //obscuration factors @ 300 km
+laplacian: False, #Colormap of Lap(penumbra)
+
+# Overlay params
+laplacian_levels: [0.005, 0.035, 10], # np.arange(0.005, 0.035, 10)
+penumbra_levels: [0.2, 1, 40], #Same as laplacian_levels
+}
