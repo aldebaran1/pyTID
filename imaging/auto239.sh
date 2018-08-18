@@ -1,0 +1,10 @@
+python gps2d.py 2017 239 00:00 02:00 cfg/mstid_2017_239.yaml
+python gps2d.py 2017 239 02:00 04:00 cfg/mstid_2017_239.yaml
+python gps2d.py 2017 239 04:00 06:00 cfg/mstid_2017_239.yaml
+python gps2d.py 2017 239 06:00 08:00 cfg/mstid_2017_239.yaml
+python gps2d.py 2017 239 08:00 10:00 cfg/mstid_2017_239.yaml
+python gps2d.py 2017 239 10:00 13:00 cfg/mstid_2017_239.yaml
+python gps2d.py 2017 239 13:00 16:00 cfg/mstid_2017_239.yaml
+python gps2d.py 2017 239 16:00 20:00 cfg/mstid_2017_239.yaml
+python gps2d.py 2017 239 20:00 22:00 cfg/mstid_2017_239.yaml
+python gps2d.py 2017 239 22:00 23:59 cfg/mstid_2017_239.yaml

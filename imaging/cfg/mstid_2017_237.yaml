@@ -1,0 +1,22 @@
+{
+fillpixel_iter: 3,
+skip: 3,
+projection: merc,
+latlim: [20, 50],
+lonlim: [-140, -60],
+clim: [-0.2, 0.2],
+#position: [-104.02388889, 30.66972222],
+
+#position: [45.9, 11.5],
+
+imagetype: contourf,
+
+maplonlim: [-135, -65],
+maplatlim: [20, 55],
+parallels: [10,20,30,40,50,60,70],
+meridians: [-160,-120,-100,-80,-60,-40],
+
+datafn: /media/smrak/Eclipse2017/mstid/hdf/mstid2017_237_processed.h5,
+savedir: /media/smrak/Eclipse2017/mstid/images/2017237/,
+
+}

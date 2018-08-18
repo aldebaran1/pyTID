@@ -1,17 +1,26 @@
 {
 # Map
+projection: merc,
 figure_size: [12,8], # In inches!
-background_color: 'gray',
+background_color: 'grey',
 border_color: '#006600', #soft green
 grid_color: 'w',
 grid_linestyle: '--',
-grid_linewidth: 0.5,
+grid_linewidth: 1,
 terrain: False,
 states: False,
 
+# Map limits
+lonlim: [-135, -60],
+latlim: [20, 50],
+#Map params
+parallels: [10,20,30,40,50,60],
+meridians: [-160,-140,-120,-100,-80,-60,-40],
+
 # Image
-image_type: contourf,
+image_type: contourfp,
 cmap: jet,
+clim: [-0.05,0.05],
 image_nlevels: 40,
 
 # Marker params
