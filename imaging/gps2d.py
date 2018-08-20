@@ -12,16 +12,53 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.colors as colors
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import nexrad_quickplot as nq
 
 from glob import glob
 import h5py
 import yaml
-from numpy import array, where, ma, isnan, arange, mean, isfinite, mgrid, sort, fromfile, float32, linspace, floor, ceil
+from numpy import array, where, ma, isnan, arange, mean, isfinite, mgrid, sort
+from numpy import fromfile, float32, linspace, floor, ceil, add, multiply
+from numpy import meshgrid, rot90, flip
 from datetime import datetime
 from scipy import ndimage
 from pyGnss import gnssUtils as gu
 
 import concurrent.futures
+
+def _toLuma(x):
+    """
+    After https://en.wikipedia.org/wiki/Luma_(video)
+    """
+    rr = multiply(x[:,:,0], 0.2126)
+    gg = multiply(x[:,:,1], 0.7152)
+    bb = multiply(x[:,:,2], 0.0722)
+    yy = add(rr,gg,bb)
+    
+    return yy
+
+def returndTEC(fn,dtype='single',darg=1,time='dt'):
+    f = h5py.File(fn, 'r')
+    xgrid = f['data/xgrid'].value
+    ygrid = f['data/ygrid'].value
+    t = f['data/time'].value
+    if dtype == 'single':
+        im = f['data/im'][darg]
+    if time == 'dt':
+        t = array([datetime.utcfromtimestamp(t) for t in t])
+    return t, xgrid, ygrid, im
+
+def returnNEXRAD(folder, downsample=1, dtype='single',darg='',im_mask=220):
+    if dtype == 'single':
+        nqr = nq.load(folder + darg, downsample=downsample)
+    nqr_lon = nqr.lon
+    nqr_lat = nqr.lat
+    nqr_im = nqr.values
+    nqr_gs = _toLuma(nqr_im)
+    X,Y = meshgrid(nqr_lon,nqr_lat)
+    Z = flip(rot90(ma.masked_where((nqr_gs>=im_mask),nqr_gs),2),1)
+    
+    return X,Y,Z
 
 def getNeighbours(image,i,j,N=3):
     """
@@ -149,8 +186,8 @@ def getTotality():
         
         return lon_s, lat_s, lon_n, lat_n
     
-def getTotalityCenter():
-    totality_path = h5py.File('/home/smrak/Documents/eclipse/totality.h5', 'r')
+def getTotalityCenter(fn='/home/smrak/Documents/eclipse/totality.h5'):
+    totality_path = h5py.File(fn, 'r')
     lat_c = totality_path['path/center_lat'].value
     lon_c = totality_path['path/center_lon'].value
     
