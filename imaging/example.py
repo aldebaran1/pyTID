@@ -16,6 +16,10 @@ from datetime import datetime
 from numpy import array, multiply, add, ma, rot90, flip, linspace, meshgrid
 import gps2d
 
+try:
+    del title
+except:
+    pass
 # CFG MAP
 wdir = os.getcwd()
 import platform
@@ -34,6 +38,7 @@ elif platform.system() == 'Windows':
     # Totality data
     totalityfn = 'E:\\totality.h5'
 # What to do?
+RGB = 0
 DTEC = 1
 NEXRAD = 1
 TOTALITY = 1
@@ -42,7 +47,7 @@ save = 'E:\\grlfigs\\'
 save = ''
 
 nqimage = '/nexrad2017-08-20T13-00-00.png'
-nqimage = '/nexrad2017-08-21T18-00-00.png'
+nqimage = '/nexrad2017-08-21T18-10-00.png'
     
 # Map settings
 mapcfg = wdir + '/map/example_map.yaml'
@@ -88,9 +93,9 @@ if DTEC:
     #datafn = 'single233_02_cut.h5'
     fn = folder + datafn
     #i = 2273 # 18:57
-    i = 2243 # 18:42
-    #i = 2233 # 18:37:00
-    #i = 2213 # 18:27
+#    i = 2243 # 18:42
+    i = 2235 # 18:38
+#    i = 2213 # 18:27
 #    i = 1679 # 14:00
 #    i = 1559 # 13:00
 #    i = 1619 # 13:30
@@ -98,7 +103,7 @@ if DTEC:
     if fillpixeriter > 0:
         tec = gps2d.makeImage(tec,pixel_iter=fillpixeriter)
     # Plot data
-    plt.title(t[i])
+    title = 'TEC: ' + str(t[i])
     if image_type == 'contourf':
         tec[tec<=clim[0]] = levels[0]
         tec[tec>=clim[1]] = levels[-1]
@@ -110,13 +115,27 @@ if DTEC:
     cbar = plt.colorbar(ticks=[clim[0], clim[0]/2, 0, clim[1]/2, clim[1]])
     cbar.set_label('$\Delta$TEC [TECu]')
 if NEXRAD:
-    X, Y, Z = gps2d.returnNEXRAD(nexradfolder, downsample=16, darg=nqimage)
-    plt.contourf(X,Y,Z,10,cmap='Greys_r',
-                transform=ccrs.PlateCarree())
+    if 'title' in vars():
+        title += '\n NEXRAD: ' + nqimage[7:-4]
+    else:
+        title = 'NEXRAD: ' + nqimage[7:-4]
+    X, Y, Z = gps2d.returnNEXRAD(nexradfolder, downsample=16, darg=nqimage, RGB=RGB)
+    if not RGB:
+        plt.contourf(X,Y,Z,10,cmap='Greys_r',transform=ccrs.PlateCarree())
+    else:
+        if not projection == 'stereo':
+            plt.imshow(Z,origin='upper',
+                         extent=[X[0][0], X[0][-1], Y[0][0], Y[-1][0]],
+                         transform=ccrs.PlateCarree())
+        else:
+            print (projection + ' projection doest work for RGB NEXRAD images')
+        
 if TOTALITY:
     lon_t, lat_t = gps2d.getTotalityCenter(totalityfn)
-    plt.plot(lon_t, lat_t-1, '--k', lw=2, transform=ccrs.PlateCarree())
+    plt.plot(lon_t, lat_t-1, '.-k', lw=2, transform=ccrs.PlateCarree())
     
+# Make title:
+plt.title(title)
 if save != '':
     try:
         filename = datetime.strftime(t[i], '%Y%d%m-%H%M%S')
