@@ -48,15 +48,19 @@ def returndTEC(fn,dtype='single',darg=1,time='dt'):
         t = array([datetime.utcfromtimestamp(t) for t in t])
     return t, xgrid, ygrid, im
 
-def returnNEXRAD(folder, downsample=1, dtype='single',darg='',im_mask=220):
+def returnNEXRAD(folder, downsample=1, dtype='single',darg='',im_mask=220,RGB=0):
     if dtype == 'single':
         nqr = nq.load(folder + darg, downsample=downsample)
     nqr_lon = nqr.lon
     nqr_lat = nqr.lat
     nqr_im = nqr.values
-    nqr_gs = _toLuma(nqr_im)
+    if not RGB:
+        nqr_im= _toLuma(nqr_im)
+        Z = flip(rot90(ma.masked_where((nqr_im>=im_mask),nqr_im),2),1)
+    else:
+        Z = ma.masked_where((nqr_im>=im_mask),nqr_im)
     X,Y = meshgrid(nqr_lon,nqr_lat)
-    Z = flip(rot90(ma.masked_where((nqr_gs>=im_mask),nqr_gs),2),1)
+    
     
     return X,Y,Z
 
