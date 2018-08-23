@@ -15,6 +15,7 @@ from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import nexrad_quickplot as nq
 
 from glob import glob
+from dateutil import parser
 import h5py
 import yaml
 from numpy import array, where, ma, isnan, arange, mean, isfinite, mgrid, sort
@@ -28,6 +29,7 @@ import concurrent.futures
 
 def _toLuma(x):
     """
+    RBG -> Luma conversion
     After https://en.wikipedia.org/wiki/Luma_(video)
     """
     rr = multiply(x[:,:,0], 0.2126)
@@ -38,14 +40,42 @@ def _toLuma(x):
     return yy
 
 def returndTEC(fn,dtype='single',darg=1,time='dt'):
+    """
+    Return a single slice with coordinates from the HDF image collection. Multi
+    type query:
+        dtype = single:
+            darg = i-th element of the array. Must be an integer
+            darg = timestamp. It will find the closes time stamp in the collection
+            and return the slice with coordinates. Input either datetime.datetime
+            or strng which is parsed via parser.parse()
+        time = return time format. If dt = posix, else datetime.datetime
+    Return:
+        time[dt,posix], xgrid, ygrid, image
+    """
+    def _getIndex(t,t0):
+        i = abs(t-t0).argmin()
+        return i
     f = h5py.File(fn, 'r')
     xgrid = f['data/xgrid'].value
     ygrid = f['data/ygrid'].value
-    t = f['data/time'].value
+    t0 = f['data/time'].value
+    t = array([datetime.utcfromtimestamp(t) for t in t0])
     if dtype == 'single':
-        im = f['data/im'][darg]
-    if time == 'dt':
-        t = array([datetime.utcfromtimestamp(t) for t in t])
+        i = darg
+    if dtype == 't':
+        if isinstance(darg,datetime):
+            i = _getIndex(t,darg)
+        elif isinstance(darg,str):
+            try:
+                t0 = parser.parse(darg)
+                i = _getIndex(t,t0)
+            except Exception as e:
+                print(e)
+        else:
+            raise("'darg' must be datetime or stging type")
+    im = f['data/im'][i]
+    if time == 'posix':
+        t = t0
     return t, xgrid, ygrid, im
 
 def returnNEXRAD(folder, downsample=1, dtype='single',darg='',im_mask=220,RGB=0):
