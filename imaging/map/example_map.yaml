@@ -3,21 +3,21 @@
 projection: lambert,
 figure_size: [12,8], # In inches!
 background_color: 'grey',
-border_color: '#006600', #soft green
-grid_color: 'w',
+border_color: 'w',#'#006600', #soft green
+grid_color: 'k',
 grid_linestyle: '--',
-grid_linewidth: 2,
+grid_linewidth: 1,
 terrain: False,
 states: True,
 
 # Map limits
-lonlim: [-120.5, -79.5],
-latlim: [25, 52],
+lonlim: [-120, -70],
+latlim: [19, 56],
 #lonlim: [-105, -77],
 #latlim: [30, 45],
 #Map params
-parallels: [10,20,30,40,50,60],
-meridians: [-160,-140,-120,-110,-100,-90,-80,-70,-60,-40],
+parallels: [10,20,25,30,35,40,45,50,55,60,70,80,90],
+meridians: [160,-180,-160,-140,-130,-120,-110,-100,-90,-80,-70,-60,-50,-40,-30,-20,-10],
 
 # Image
 image_type: contourf,
@@ -26,10 +26,11 @@ clim: [-0.1, 0.1],
 image_nlevels: 20,
 
 # Marker params
+marker_location: [[-89.2, 37.7], [-89.2, 42.7]],
 marker_color: m,
 marker: x,
-marker_size: 15,
-market_width: 3,
+marker_size: 305,
+marker_width: 3,
 
 # Eclipse only
 totality: False, #Line of totality from nasa webpage
