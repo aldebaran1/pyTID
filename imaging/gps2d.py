@@ -21,7 +21,7 @@ import h5py
 import yaml
 from numpy import array, where, ma, isnan, arange, mean, isfinite, mgrid, sort
 from numpy import fromfile, float32, linspace, floor, ceil, add, multiply
-from numpy import meshgrid, rot90, flip
+from numpy import meshgrid, rot90, flip, ndarray
 from datetime import datetime
 from scipy import ndimage
 from pyGnss import gnssUtils as gu
@@ -56,28 +56,37 @@ def returndTEC(fn,dtype='single',darg=1,time='dt'):
     def _getIndex(t,t0):
         i = abs(t-t0).argmin()
         return i
+    
     f = h5py.File(fn, 'r')
     xgrid = f['data/xgrid'].value
     ygrid = f['data/ygrid'].value
     t0 = f['data/time'].value
     t = array([datetime.utcfromtimestamp(t) for t in t0])
+    im = f['data/im']
+    
     if dtype == 'single':
         i = darg
-    if dtype == 't':
+        im = f['data/im'][i]
+    elif dtype == 't':
         if isinstance(darg,str):
             darg = parser.parse(darg)
         elif isinstance(darg, datetime):
             pass
-#        elif isinstance(darg,str):
-#            try:
-#                t0 = parser.parse(darg)
-#                i = _getIndex(t,t0)
-#            except Exception as e:
-#                print(e)
         else:
             raise("'darg' must be datetime or stging type")
-    i = _getIndex(t,darg)
-    im = f['data/im'][i]
+        i = _getIndex(t, darg)
+        im = f['data/im'][i]
+    elif dtype == 'treq':
+        if isinstance(darg, (list, ndarray)):
+            darg = [parser.parse(d) for d in darg]
+        elif isinstance(darg[0], datetime):
+            pass
+        else:
+            raise("'darg' must be datetime or stging type")
+        i1 = _getIndex(t, darg[0])
+        i2 = _getIndex(t, darg[1])
+        im = f['data/im'][i1:i2]
+        t = t[i1:i2]
     if time == 'posix':
         t = t0
     return t, xgrid, ygrid, im
@@ -212,8 +221,8 @@ def makeImage(im, pixel_iter):
     im = fillPixels(im, pixel_iter)
     im = fillPixels(im)
     im = ndimage.median_filter(im, 3)
-    image = ma.masked_where(isnan(im),im)
-    return image
+    #im = ma.masked_where(isnan(im),im)
+    return im
 
 def getTotality():
         totality_path = h5py.File('/home/smrak/Documents/eclipse/totality.h5', 'r')

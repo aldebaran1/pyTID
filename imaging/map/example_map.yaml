@@ -3,7 +3,7 @@
 projection: lambert,
 figure_size: [12,8], # In inches!
 background_color: 'grey',
-border_color: 'w',#'#006600', #soft green
+border_color: 'w', #'#006600', #soft green
 grid_color: 'k',
 grid_linestyle: '--',
 grid_linewidth: 1,
@@ -11,13 +11,12 @@ terrain: False,
 states: True,
 
 # Map limits
-lonlim: [-120, -70],
-latlim: [19, 56],
-#lonlim: [-105, -77],
-#latlim: [30, 45],
+lonlim: [-125, -65],
+latlim: [20, 53],
 #Map params
-parallels: [10,20,25,30,35,40,45,50,55,60,70,80,90],
-meridians: [160,-180,-160,-140,-130,-120,-110,-100,-90,-80,-70,-60,-50,-40,-30,-20,-10],
+#parallels: [10,20,25,30,35,40,45,50,55,60,70,80,90],
+parallels: [10,20,30,40,50,60,70,80,90],
+meridians: [180, 160,-180,-160,-140,-120,-110,-100,-90,-80,-60,-40,-20,0],
 
 # Image
 image_type: contourf,
@@ -26,18 +25,10 @@ clim: [-0.1, 0.1],
 image_nlevels: 20,
 
 # Marker params
-marker_location: [[-89.2, 37.7], [-89.2, 42.7]],
-marker_color: m,
-marker: x,
-marker_size: 305,
-marker_width: 3,
+#marker_location: [[-89.2, 37.7]],
+#marker_color: m,
+#marker: x,
+#marker_size: 305,
+#marker_width: 3,
 
-# Eclipse only
-totality: False, #Line of totality from nasa webpage
-penumbra: False, #Contours of penumbra //obscuration factors @ 300 km
-laplacian: False, #Colormap of Lap(penumbra)
-
-# Overlay params
-laplacian_levels: [0.005, 0.035, 10], # np.arange(0.005, 0.035, 10)
-penumbra_levels: [0.2, 1, 40], #Same as laplacian_levels
 }

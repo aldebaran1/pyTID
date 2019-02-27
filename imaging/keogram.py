@@ -14,6 +14,7 @@ import matplotlib.dates as mdates
 import matplotlib.colors as colors
 from pyGnss import gnssUtils as gu
 #from sdomask import mask2d
+from sunrise import sunrise
 from scipy import ndimage
 import datetime
 
@@ -50,11 +51,12 @@ def fillPixels(im, N=1):
     return im
 
 
-def plotKeogram(t,Y,im,title='',cmap='jet',clim=[],tlim=[],ylim=[], 
-                xlabel='',ylabel='',save=None,alpha=1,ptype='im',cfstep=0.01):
+def plotKeogram(t,Y,im,title='',cmap='jet',clim=[],tlim=[],ylim=[], ytick=[],
+                figsize=(12,8), xlabel='',ylabel='',save=None,
+                alpha=1,ptype='im',cfstep=0.01):
     
     formatter = mdates.DateFormatter('%H:%M')
-    fig = plt.figure(figsize=(12,8))
+    fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     plt.title(title)
     if ptype =='im':
@@ -65,7 +67,6 @@ def plotKeogram(t,Y,im,title='',cmap='jet',clim=[],tlim=[],ylim=[],
         im[im>=levels[-1]] = levels[-1]
         plt.contourf(t,Y,im.T, levels=levels,cmap=cmap,alpha=alpha)
     plt.clim(clim)
-#    plt.colorbar()
     plt.colorbar(ticks=[clim[0], clim[0]/2, 0, clim[1]/2, clim[1]])
     if len(clim) > 0:
         plt.clim(clim)
@@ -73,6 +74,8 @@ def plotKeogram(t,Y,im,title='',cmap='jet',clim=[],tlim=[],ylim=[],
         plt.xlim(tlim)
     if len(ylim) > 0:
         plt.ylim(ylim)
+    if len(ytick) > 0:
+        plt.yticks(ytick)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     ax.xaxis.set(major_formatter=formatter)
@@ -81,17 +84,22 @@ def plotKeogram(t,Y,im,title='',cmap='jet',clim=[],tlim=[],ylim=[],
     return ax
         
 def plotSpectogram(t,k,Sx,title='',cmap='viridis',clim=[],tlim=[],ylim=[], 
-                   xlabel='',ylabel='',save=None, scale='lin'):
+                   xlabel='',ylabel='',save=None, scale='lin',
+                   figsize=(12,6), xticks=None):
     formatter = mdates.DateFormatter('%H:%M')
-    fig = plt.figure(figsize=(12,6))
+    fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     Zm = np.ma.masked_where(np.isnan(Sx),Sx)
     if scale == 'lin':
         plt.pcolormesh(t,k,Zm.T, cmap=cmap)
     else:
         plt.pcolormesh(t,k,10*np.log10(Zm).T, cmap=cmap)
+    if len(ylim) > 0:
+        plt.ylim(ylim)
     plt.ylabel(ylabel)
     plt.clim(clim)
+    if len(tlim) > 0:
+        plt.xlim(tlim)
     plt.colorbar()
     ax.set_xticklabels(t)
     ax.xaxis.set(major_formatter=formatter)
@@ -187,7 +195,8 @@ def getMaskKeogram(nlat=180, nlon=360,X=39,lim=[-130, -60],direction='lat',
     return dt, Y, keogram, keograml
 
 def getKeogram(filename, skip=1,X=40,lim=[-110,-70],direction='lat',timelim=[],
-               im_filter=1, fillPixel_iter=0, integrate=2, spectogram=0):
+               im_filter=1, fillPixel_iter=0, integrate=2, spectogram=0,
+               totality=0):
     """
     Direction lat: Fixed LAT, look along lon
     """
@@ -237,11 +246,19 @@ def getKeogram(filename, skip=1,X=40,lim=[-110,-70],direction='lat',timelim=[],
                     if N > 0:
                         keogram[i,j] = sum(np.nan_to_num(imstack[i,j,:]))/N 
         Y = xgrid[idx]
-    elif direction == 'totality':
-        totality_path = h5py.File('/home/smrak/Documents/eclipse/totality.h5', 'r')
-        Xt = totality_path['path/center_lon'].value
-        Yt = totality_path['path/center_lat'].value - 1
-        Xt, Yt = interpolateTotality(Xt,Yt,lon0=-150,lon1=-50,order=5,resolution=0.3)
+    elif direction == 'custom':
+        if totality:
+            totality_path = h5py.File('/home/smrak/Documents/eclipse/totality.h5', 'r')
+            Xt = totality_path['path/center_lon'].value
+            Yt = totality_path['path/center_lat'].value - 1
+            Xt, Yt = interpolateTotality(Xt,Yt,lon0=-150,lon1=-50,order=5,resolution=0.3)
+        else:
+            Xt = np.array([-100, -93.75, -87.5, -81.2])
+            Yt = np.array([44, 39.5, 35, 30.5])
+            Xt = np.array([-95, -90])
+            Yt = np.array([44, 35])
+            Xt, Yt = interpolateTotality(Xt,Yt,lon0=Xt[0],lon1=Xt[-1],order=1,resolution=0.02)
+#            plt.plot(Xt,Yt)
         
         idx = np.where( (xgrid >= lim[0]) & (xgrid<= lim[1]) )[0]
         idy = []
@@ -273,7 +290,6 @@ def getKeogram(filename, skip=1,X=40,lim=[-110,-70],direction='lat',timelim=[],
         keogram = fillPixels(keogram,N=fillPixel_iter)
     if im_filter:
         keogram = ndimage.median_filter(keogram, 3)
-    
     
     if spectogram:
         
@@ -314,35 +330,48 @@ def plotMaskKeogram(t,Y,z,laplace=None,cmap='gray',alpha=0.9,lw=1):
     
     ax.xaxis.set(major_formatter=formatter)
 
-day = 234
+day = 232
 filename = '/media/smrak/Eclipse2017/Eclipse/hdf/eclipse/single'+str(day)+'_02.h5'
 filename = 'E:\\single234_02.h5'
+filename = 'E:\\single233_03.h5'
+#filename = 'E:\\single233_02.h5'
+#filename = 'E:\\single232_02_130_60.h5'
+#filename = 'E:\\single233_02_cut.h5'
+#filename = 'E:\\single233_02_130_60.h5'
 #savefolder = '/media/smrak/Eclipse2017/Eclipse/keogram/new/'
-savefolder = '/home/smrak/Documents/eclipse/GRL3/'
-savefolder = 'E:\\surav\\'
+#savefolder = '/home/smrak/Documents/eclipse/GRL3/'
+#savefolder = 'E:\\'
 #euvdir = '/home/smrak/Documents/eclipse/HiResFull300/'
  
-
+##direction = 'custom'
 #direction = 'totality'
 #X = np.arange(30,51,2)
 direction = 'lat'
-X = [37.7]
+X = [40]
 lim = [-120, -70]
 #direction = 'lon'
-#X =[-90,-85,-95]
-#lim = [25,50]
+#X =[-120]
+#lim = [30,50]
+
+# Sunrise?
+#lon_sunrise = np.arange(-120,-65,5)
+#t_sunrise = np.array([sunrise.getsunriseTimeUTC(lat=40, lon=ll, alt=0, 
+#                      date=datetime.datetime(2017,8,21)) for ll in lon_sunrise])
+
 
 #t_mask, Y_mask, keogram_mask, keograml_mask = getMaskKeogram(X=X[0],lim=lim,direction=direction,EUVDIR=euvdir)
 #plotMaskKeogram(t_mask,Y_mask,keogram_mask,laplace=abs(keograml_mask),cmap='Greens')
 #keofn = savefolder + str(day) + direction + str(X[0])
 #plt.savefig(keofn+'penumbra2.png', dpi=400)
 fillpixel_iter = 1
-skip=1
-integrate=5
-im_filter = True
+skip = 3
+integrate = 3
+im_filter = 1
 
+figsize = (12,6)
 clim = [-0.15,0.15]
-timelim = [datetime.datetime(2017,8,22,0,0,0), datetime.datetime(2017,8,22,12,0,0)]
+ytick = [30,35,40,45,50]
+timelim = [datetime.datetime(2017,8,21,0,0,0), datetime.datetime(2017,8,22,0,0,0)]
 #timelim=[]
 
 for X in X:
@@ -358,17 +387,25 @@ for X in X:
         ylabel = 'lon [deg]'
     else:
         ylabel = 'lat [deg]'
-    keofn = savefolder + str(day) + direction + str(X)
+#    keofn = savefolder + str(day) + direction + str(X)
 #    spectname = savefolder + 'specto' + str(day) + direction + str(X)
-    ax = plotKeogram(dt,Y[:im.shape[1]],im,clim=clim, tlim=[], title='Fixed '+direction+'-- Center: '+str(X),
-                cmap='jet',alpha=1,ptype='cf',cfstep=0.01)#, save=keofn+'grl3.png') #xlabel='time [UT]',ylabel=ylabel, 
+    ax = plotKeogram(dt,Y[:im.shape[1]],im,clim=clim, figsize=figsize,
+#                     ytick=ytick,
+                     tlim=timelim,#[datetime.datetime(2017,8,20,0,0,0), datetime.datetime(2017,8,20,12,0,0)], 
+                     title='Fixed '+direction+'-- Center: '+str(X),
+                     cmap='jet',alpha=1,ptype='cf',cfstep=0.005,ylim=lim)
+#    plt.savefig(keofn+'.png', dpi=300)
+    
+#    ax.plot(t_sunrise+ datetime.timedelta(minutes=90), lon_sunrise, 'k', lw=2)
 
 #    cmap1 = colors.LinearSegmentedColormap.from_list("", ['black', 'magenta'])
 #    levels = np.linspace(0.005,0.04,3)
 #    iml = abs(keograml_mask)
 #    iml[iml>=levels[-1]] = levels[-2]
 #    ax.contour(t_mask,Y_mask,iml.T, levels, colors='k',linewidths=3,alpha=0.9)
-    plt.savefig(keofn+'30s.png', dpi=300)
-#    plotSpectogram(dt,k,Sx, clim=[0,2],xlabel='time [UT]',ylabel='',scale='lin')
-#    plt.savefig(spectname+'g3.png', dpi=200)
+
+#    plotSpectogram(dt,k,Sx, clim=[0,10],xlabel='time [UT]',ylabel='',
+#                   scale='lin', ylim=[0,0.05], figsize=figsize,
+#                   tlim=[datetime.datetime(2017,8,22,0,0,0), datetime.datetime(2017,8,22,12,0,0)])
+#    plt.savefig(keofn+'_spect.png', dpi=200)
 #    keo2txt(keogram, center=X,tlim=timelim,ylim=[Y[0],Y[-1]],res=Y[-1]-Y[-2],fn=keofn+'txt')
