@@ -246,6 +246,8 @@ def process(fn, odir=None, cfg=None, log=None):
         savefig = stream.get('savefig')
         figfolder = stream.get('figfolder')
         if figfolder is None:
+            if odir is None:
+                odir = os.path.split(fn)[0]
             figfolder = odir + '/plots/'
         
         fs = stream.get('fs')
@@ -254,7 +256,7 @@ def process(fn, odir=None, cfg=None, log=None):
         H = stream.get('alt_km')
     # Output file
     if odir is None:
-        odir = os.path.split(fn)[0]
+        odir = os.path.split(fn)[0] + '/'
     ofn = odir + 'ix_' + '_'.join(os.path.split(fn)[1].split('.')[:2]) + '_{}km.h5'.format(H)
     # Dealing with duplicate file names
     if os.path.exists(ofn):
