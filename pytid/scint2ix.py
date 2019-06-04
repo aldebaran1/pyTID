@@ -18,10 +18,6 @@ from scipy.interpolate import CubicSpline
 from pymap3d import aer2geodetic
 from argparse import ArgumentParser
 
-def _sfnadd(f, n):
-    h,t = os.path.splitext(f)
-    return h + '_' + str(n) + t
-
 def _runningMedian(x, N):
     n2 = int(N/2)
     iterate = np.arange(n2, x.size-n2)
@@ -217,12 +213,6 @@ def _toLLT(rxp=None, az=None, el=None, H=350):
     
     return lat, lon
 
-#fn = '/media/smrak/gnss/hdf/2017_0528T0000-0529T0000_central148.yaml_20el_1s.h5'
-#fn = '/media/smrak/gnss/hdf/2017_0527T0000-0528T0000_central147.yaml_30el_1s.h5'
-#fn = '/media/smrak/gnss/hdf/2017_central270.yaml_2017_fromssc.h5'
-#fn ='/media/smrak/gnss/hdf/2017_0908T0000-0909T0000_central251.yaml_30el_1s.h5'
-#fn = '/media/smrak/gnss/highrate/2017_0528T0000-0529T0000_t148.yaml_30el_1s.h5'
-
 def process(fn, odir=None, cfg=None, log=None):
 
     ############################### Open data ##################################
@@ -270,7 +260,7 @@ def process(fn, odir=None, cfg=None, log=None):
                 c += 1
             ofn = head + '_' + str(c) + '.h5'
     if log:
-        logfn = os.path.splitext(ofn)[0] + '.log'
+        logfn = os.path.splitext(ofn)[0] + '/' + '.log'
         LOG = open(logfn, 'w')
         LOG.close()
     # Open data file
@@ -345,30 +335,26 @@ def process(fn, odir=None, cfg=None, log=None):
             # 0.1 Do for TEC
             tec_ranges = ranges(res, idf_tec, min_gap=10, gap_length=10, min_length=30*60, zero_mean=True)
             snr_ranges = ranges(snr, idf_snr, min_gap=10, gap_length=10, min_length=30*60)
-            # Set output values to zero/NaN
-#            if tec_ranges.size == 0:
-#                sT = np.nan * np.copy(res)
-#            else:
             # Process TEC per intervals
             if tec_ranges.size > 0:
                 for ith_range, r in enumerate(tec_ranges):
                     # Remove to short ranges if accidentaly do occur
                     if np.diff(r) < 10: continue
-#                    try:
-                    chunk = res[r[0] : r[1]]
-                    tec_hpf, tec_hpf_original[r[0]:r[1]], tec_mask = _partialProcess(dt, r, chunk, fs=fs, fc=fc, hpf_order=hpf_order, 
-                                                                                     plot_ripple=plot_ripple, plot_outlier=plot_outlier)
-                    tec_outliers[r[0] : r[1], isv] = tec_mask
-                    sT_interval = scint.sigmaTEC(tec_hpf, N = 60)
-                    sigma_tec_copy[r[0] : r[1]] = sT_interval
-                    tec_hpf_copy[r[0] : r[1]] = tec_hpf
-#                    except Exception as e:
-#                        if log:
-#                            with open(logfn, 'a') as LOG:
-#                                LOG.write('{}\n'.format(e))
-#                            LOG.close()
-#                        else:
-#                            print (e)
+                    try:
+                        chunk = res[r[0] : r[1]]
+                        tec_hpf, tec_hpf_original[r[0]:r[1]], tec_mask = _partialProcess(dt, r, chunk, fs=fs, fc=fc, hpf_order=hpf_order, 
+                                                                                         plot_ripple=plot_ripple, plot_outlier=plot_outlier)
+                        tec_outliers[r[0] : r[1], isv] = tec_mask
+                        sT_interval = scint.sigmaTEC(tec_hpf, N = 60)
+                        sigma_tec_copy[r[0] : r[1]] = sT_interval
+                        tec_hpf_copy[r[0] : r[1]] = tec_hpf
+                    except Exception as e:
+                        if log:
+                            with open(logfn, 'a') as LOG:
+                                LOG.write('{}\n'.format(e))
+                            LOG.close()
+                        else:
+                            print (e)
             # Set output values to zero/NaN
             if snr_ranges.size > 0:
 #                SNR4 = np.nan * np.copy(snr)
@@ -376,21 +362,21 @@ def process(fn, odir=None, cfg=None, log=None):
                 for ith_range, r in enumerate(snr_ranges):
                     # Remove to short ranges if accidentaly do occur
                     if np.diff(r) < 10: continue
-#                    try:
-                    Schunk = snr[r[0] : r[1]]
-                    snr_hpf, snr_hpf_original[r[0]:r[1]], snr_mask = _partialProcess(dt, r, Schunk, fs=fs, fc=fc, hpf_order=hpf_order,
-                                                                                     plot_ripple=plot_ripple, plot_outlier=plot_outlier)
-                    snr_outliers[r[0] : r[1], isv] = snr_mask
-                    snr4_interval = scint.sigmaTEC(snr_hpf, N = 60)
-                    snr4_copy[r[0] : r[1]] = snr4_interval
-                    snr_hpf_copy[r[0] : r[1]] = snr_hpf
-#                except Exception as e:
-#                    if log:
-#                        with open(logfn, 'a') as LOG:
-#                            LOG.write('{}\n'.format(e))
-#                        LOG.close()
-#                    else:
-#                        print (e)
+                    try:
+                        Schunk = snr[r[0] : r[1]]
+                        snr_hpf, snr_hpf_original[r[0]:r[1]], snr_mask = _partialProcess(dt, r, Schunk, fs=fs, fc=fc, hpf_order=hpf_order,
+                                                                                         plot_ripple=plot_ripple, plot_outlier=plot_outlier)
+                        snr_outliers[r[0] : r[1], isv] = snr_mask
+                        snr4_interval = scint.sigmaTEC(snr_hpf, N = 60)
+                        snr4_copy[r[0] : r[1]] = snr4_interval
+                        snr_hpf_copy[r[0] : r[1]] = snr_hpf
+                    except Exception as e:
+                        if log:
+                            with open(logfn, 'a') as LOG:
+                                LOG.write('{}\n'.format(e))
+                            LOG.close()
+                        else:
+                            print (e)
             # Save scintillation indices
             sigma_tec[:, isv, irx] = sigma_tec_copy
             snr4[:, isv, irx] = snr4_copy
