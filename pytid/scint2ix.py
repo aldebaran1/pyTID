@@ -243,7 +243,7 @@ def process(fn, odir=None, cfg=None, log=None):
         figfolder = stream.get('figfolder')
         if figfolder is None:
             if odir is None:
-                odir = os.path.split(fn)[0]
+                odir = os.path.split(fn)[0] + '/'
             figfolder = odir + '/plots/'
         
         fs = stream.get('fs')
