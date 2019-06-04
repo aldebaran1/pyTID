@@ -266,7 +266,7 @@ def process(fn, odir=None, cfg=None, log=None):
                 c += 1
             ofn = head + '_' + str(c) + '.h5'
     if log:
-        logfn = os.path.splitext(ofn)[0] + '/' + '.log'
+        logfn = os.path.splitext(ofn)[0] + '.log'
         LOG = open(logfn, 'w')
         LOG.close()
     # Open data file
