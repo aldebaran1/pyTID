@@ -44,7 +44,6 @@ if __name__ == '__main__':
         SBFOLDER = yamlcfg.get('sbfolder')
         SAVEFOLDER = yamlcfg.get('savefolder')
     
-    flog = open()
     date = parser.parse(P.date)
     year = date.year
     day = date.strftime('%j')
@@ -109,6 +108,7 @@ if __name__ == '__main__':
     if P.log is not None:
         logfn = os.path.splitext(savefn)[0] + '.log'
         LOG = open(logfn, 'w')
+        LOG.close()
     # Correct tlim for processing purpuses:
     if P.tlim is not None:
         tlim[0] -= timedelta(hours=1)
@@ -134,7 +134,9 @@ if __name__ == '__main__':
             rxpos[irx] = gr.load(fnc).position_geodetic
             rxn[irx] = nc_rx_name[irx]
             if P.log is not None:
-                LOG.write('{}/{}\n'.format(irx+1, rxl))
+                with open(logfn, 'a') as LOG:
+                    LOG.write('Processing {}/{}\n'.format(irx+1, rxl))
+                    LOG.close()
             else:
                 print ('{}/{}'.format(irx+1, rxl))
             for isv, sv in enumerate(svlist):
@@ -196,12 +198,14 @@ if __name__ == '__main__':
                     az[idt, isv, irx] = D.az.values[ixmask][idt_reverse]
                 except Exception as e:
                     if P.log is not None:
-                        LOG.write(e + '\n')
+                        LOG.write(str(e) + '\n')
                     else:
                         print (e)
         except Exception as e:
             if P.log is not None:
-                LOG.write(e + '\n')
+                with open(logfn, 'a') as LOG:
+                    LOG.write(str(e) + '\n')
+                LOG.close()
             else:
                 print (e)
     th5 = gu.datetime2posix(t.astype(datetime))
@@ -220,7 +224,9 @@ if __name__ == '__main__':
             
     # putting the output file togather
     if P.log is not None:
-        LOG.write('Saving data...... {}\n'.format(os.path.split(savefn)[1]))
+        with open(logfn, 'a') as LOG:
+            LOG.write('Saving data...... {}\n'.format(os.path.split(savefn)[1]))
+        LOG.close()
     else:
         print ('Saving data...... {}'.format(os.path.split(savefn)[1]))
     
@@ -242,6 +248,8 @@ if __name__ == '__main__':
     
     h5file.close()
     if P.log is not None:
-        LOG.write('{} successfully saved.\n'.format(savefn))
+        with open(logfn, 'a') as LOG:
+            LOG.write('{} successfully saved.\n'.format(savefn))
+        LOG.close()
     else:
         print ('{} successfully saved.'.format(savefn))
