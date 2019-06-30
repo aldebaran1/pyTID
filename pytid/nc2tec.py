@@ -29,6 +29,7 @@ if __name__ == '__main__':
     p.add_argument('--ts', help = 'sampling rate', default = 30, type = int)
     p.add_argument('--cfg', help = 'Path to the config (yaml) file', default = None)
     p.add_argument('--log', help = 'If you prefer to make a .log file?', action = 'store_true')
+    p.add_argument('--stec', help = 'Save slant TEC?', action = 'store_true')
     P = p.parse_args()
     
     # GLOBAL VARIABLES
@@ -48,7 +49,6 @@ if __name__ == '__main__':
     year = date.year
     day = date.strftime('%j')
     rxlist = os.path.expanduser(P.rxlist)
-#    ipp_alt = float(P.altkm)
     el_mask = P.elmask
     tlim = P.tlim
     Ts = P.ts
@@ -56,7 +56,6 @@ if __name__ == '__main__':
     weights=[1, 4, 7, 10]
     
     # Obs nav
-#    if Ts == 1: OBSFOLDER += 'highrate/'
     nc_root = os.path.join(OBSFOLDER, str(year))
     # Filter input files
     stream = yaml.load(open(rxlist, 'r'))
@@ -76,7 +75,6 @@ if __name__ == '__main__':
     satbias = pyGnss.getSatBias(fjplg)
     # Processing options
     satpos = True
-#    ipp = True
     args = ['L1', 'L2']
     #Common time array
     if tlim is None:
@@ -117,9 +115,9 @@ if __name__ == '__main__':
     svl = 32 #gr.load(fnc[0]).sv.values.shape[0]
     rxl = fnc.shape[0]
     
-    if Ts > 10 : slanttec = np.nan * np.zeros((tl, svl, rxl))
+    if P.stec : slanttec = np.nan * np.zeros((tl, svl, rxl))
     residuals = np.nan * np.zeros((tl, svl, rxl))
-    snr = np.nan * np.zeros((tl, svl, rxl))
+    if Ts == 1: snr = np.nan * np.zeros((tl, svl, rxl))
     el = np.nan * np.zeros((tl, svl, rxl))
     az = np.nan * np.zeros((tl, svl, rxl))
     rxpos = np.nan * np.zeros((rxl, 3))
@@ -191,9 +189,9 @@ if __name__ == '__main__':
                     idt = np.isin(t, dt[ixmask])
                     idt_reverse = np.isin(dt[ixmask], t[idt])
                     
-                    if Ts > 10: slanttec[idt, isv, irx] = stec[ixmask][idt_reverse]
+                    if P.stec: slanttec[idt, isv, irx] = stec[ixmask][idt_reverse]
                     residuals[idt, isv, irx] = tecd[ixmask][idt_reverse]
-                    snr[idt, isv, irx] = S1[ixmask][idt_reverse]
+                    if Ts == 1: snr[idt, isv, irx] = S1[ixmask][idt_reverse]
                     el[idt, isv, irx] = D.el.values[ixmask][idt_reverse]
                     az[idt, isv, irx] = D.az.values[ixmask][idt_reverse]
                 except Exception as e:
@@ -233,9 +231,10 @@ if __name__ == '__main__':
     h5file = h5py.File(savefn, 'w')
     h5file.create_dataset('obstimes', data=th5)
     h5file.create_dataset('res', data=residuals, compression='gzip', compression_opts=9)
-    if Ts > 10:
+    if P.stec:
         h5file.create_dataset('stec', data=slanttec, compression='gzip', compression_opts=9)
-    h5file.create_dataset('snr', data=snr, compression='gzip', compression_opts=9)
+    if Ts == 1: 
+        h5file.create_dataset('snr', data=snr, compression='gzip', compression_opts=9)
     h5file.create_dataset('az', data=az, compression='gzip', compression_opts=9)
     h5file.create_dataset('el', data=el, compression='gzip', compression_opts=9)
     h5file.create_dataset('rx_positions', data=rxpos, compression='gzip', compression_opts=9)
