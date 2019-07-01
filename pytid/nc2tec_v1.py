@@ -16,6 +16,7 @@ import yaml
 import os
 import h5py
 from argparse import ArgumentParser
+from scipy.interpolate import CubicSpline
 #import matplotlib.pyplot as plt
 
 def _mkrngs(y0, idf, gap_length=10, lim=0.05, min_length=None, max_length=None, 
@@ -118,6 +119,7 @@ if __name__ == '__main__':
     tlim = P.tlim
     Ts = P.ts
     
+    eps = 5
     weights=[1, 4, 7, 10]
     
     # Obs nav
@@ -168,7 +170,7 @@ if __name__ == '__main__':
             assert os.file.splitext(P.ofn)[1] in ('.h5', '.hdf5')
             savefn = os.path.join(SAVEFOLDER, P.ofn)
     # Open log file is choosen so
-    if P.log is not None:
+    if P.log:
         logfn = os.path.splitext(savefn)[0] + '.log'
         LOG = open(logfn, 'w')
         LOG.close()
@@ -196,7 +198,7 @@ if __name__ == '__main__':
             navdatatime = navdata.time.values
             rxpos[irx] = gr.load(fnc).position_geodetic
             rxn[irx] = nc_rx_name[irx]
-            if P.log is not None:
+            if P.log:
                 with open(logfn, 'a') as LOG:
                     LOG.write('Processing {}/{}\n'.format(irx+1, rxl))
                     LOG.close()
@@ -269,7 +271,7 @@ if __name__ == '__main__':
                             tecd[r[0] : r[1]] = res
                     
                     # Print the shit
-                    tecd_v1[~mask] = np.nan
+                    tecd[~mask] = np.nan
                     stec[~mask] = np.nan
     
                     ixmask = (np.nan_to_num(elv) >= el_mask)
@@ -282,12 +284,12 @@ if __name__ == '__main__':
                     el[idt, isv, irx] = D.el.values[ixmask][idt_reverse]
                     az[idt, isv, irx] = D.az.values[ixmask][idt_reverse]
                 except Exception as e:
-                    if P.log is not None:
+                    if P.log:
                         LOG.write(str(e) + '\n')
                     else:
                         print (e)
         except Exception as e:
-            if P.log is not None:
+            if P.log:
                 with open(logfn, 'a') as LOG:
                     LOG.write(str(e) + '\n')
                 LOG.close()
@@ -308,7 +310,7 @@ if __name__ == '__main__':
             savefn = head + '_' + str(c) + '.h5'
             
     # putting the output file togather
-    if P.log is not None:
+    if P.log:
         with open(logfn, 'a') as LOG:
             LOG.write('Saving data...... {}\n'.format(os.path.split(savefn)[1]))
         LOG.close()
@@ -333,7 +335,7 @@ if __name__ == '__main__':
     h5file.attrs[u'weights'] = weights
     
     h5file.close()
-    if P.log is not None:
+    if P.log:
         with open(logfn, 'a') as LOG:
             LOG.write('{} successfully saved.\n'.format(savefn))
         LOG.close()
