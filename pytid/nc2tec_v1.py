@@ -46,7 +46,8 @@ def _mkrngs(y0, idf, gap_length=10, lim=0.05, min_length=None, max_length=None,
         ranges = ranges[mask]
     if len(ranges.shape) == 3:
         if isinstance(ranges, np.ndarray):
-            ranges.shape[0] != 0: ranges = ranges[0]
+            if ranges.shape[0] != 0: 
+                ranges = ranges[0]
     try:
         if extend > 0:
             start = ranges[:,0]
