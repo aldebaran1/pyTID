@@ -320,9 +320,9 @@ if __name__ == '__main__':
     dirnametime = datetimetime[0].strftime('%y%m%d')
     if t0 is not None and t1 is not None:
         timelim = [t0, t1]
-        idt = ones(datetimetime.size, dtype=bool)
-    else:
         idt = where( (datetimetime >= timelim[0]) & ((datetimetime <= timelim[1])))[0]
+    else:
+        idt = ones(datetimetime.size, dtype=bool)
     
     dt = datetimetime[idt]
     iterate1 = arange(idt[0], idt[-1]+1, skip)
