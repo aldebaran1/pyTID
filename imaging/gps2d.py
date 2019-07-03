@@ -317,7 +317,7 @@ if __name__ == '__main__':
     
     
     datetimetime = array([datetime.utcfromtimestamp(t) for t in time])
-    dirnametime = [0].strftime('%y%m%d')
+    dirnametime = datetimetime[0].strftime('%y%m%d')
     if t0 is not None and t1 is not None:
         timelim = [t0, t1]
         idt = ones(datetimetime.size, dtype=bool)
