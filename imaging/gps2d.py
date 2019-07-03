@@ -14,13 +14,13 @@ import matplotlib.colors as colors
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import nexrad_quickplot as nq
 
-import cartomap as cm
+from cartomap import geogmap as gm
 from glob import glob
 from dateutil import parser
-import h5py
+import h5py, os
 import yaml
 from numpy import array, where, ma, isnan, arange, mean, isfinite, mgrid, sort
-from numpy import fromfile, float32, linspace, floor, ceil, add, multiply
+from numpy import fromfile, float32, linspace, floor, ceil, add, multiply, copy
 from numpy import meshgrid, rot90, flip, ndarray
 from datetime import datetime
 from scipy import ndimage
@@ -127,20 +127,64 @@ def fillPixels(im, N=1):
     Fill in the dead pixels. If a dead pixel has a least 4 finite neighbour
     pixel, than replace the center pixel with a mean valuse of the neighbours
     """
-    
+    X = im.shape[0]-1
+    Y = im.shape[1]-1
+    imcopy = copy(im)
     for n in range(N):
         skip = int(floor((3+n)/2))
-        for i in arange(0,im.shape[0],skip):
-            for j in arange(0,im.shape[1],skip):
-                # Check if th epixel is dead, i.e. empty
-                if isnan(im[i,j]):
-                    # Get its neighbours as a np array
-                    nbg = getNeighbours(im,i,j,N=(3+n))
-                    # If there are at leas 4 neighbours, replace the value with a mean
-                    if sum(isfinite(nbg)) >= 4:
-                        ix = where(isfinite(nbg))[0]
-                        avg = mean(nbg[ix])
-                        im[i,j] = avg
+        starti = 0
+        startj = 0
+        forwardi = int(floor(0.6*X))
+        forwardj = int(floor(0.6*Y))
+        backwardi = int(floor(0.4*X))
+        backwardj = int(floor(0.4*Y))
+        if n%2 == 0:
+            for i in arange(starti, forwardi, skip):
+                for j in arange(startj, Y, skip):
+                    # Check if th epixel is dead, i.e. empty
+                    if isnan(im[i,j]):
+                        # Get its neighbours as a np array
+                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
+                        # If there are at leas 4 neighbours, replace the value with a mean
+                        if sum(isfinite(nbg)) >= 4:
+                            ix = where(isfinite(nbg))[0]
+                            avg = mean(nbg[ix])
+                            im[i,j] = avg
+            for i in arange(X, backwardi, -skip):
+                for j in arange(Y, 0, -skip):
+                    # Check if th epixel is dead, i.e. empty
+                    if isnan(im[i,j]):
+                        # Get its neighbours as a np array
+                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
+                        # If there are at leas 4 neighbours, replace the value with a mean
+                        if sum(isfinite(nbg)) >= 4:
+                            ix = where(isfinite(nbg))[0]
+                            avg = mean(nbg[ix])
+                            im[i,j] = avg
+        else:
+            for j in arange(startj, Y, skip):
+                for i in arange(starti, forwardi, skip):
+                    # Check if th epixel is dead, i.e. empty
+                    if isnan(im[i,j]):
+                        # Get its neighbours as a np array
+                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
+                        # If there are at leas 4 neighbours, replace the value with a mean
+                        if sum(isfinite(nbg)) >= 4:
+                            ix = where(isfinite(nbg))[0]
+                            avg = mean(nbg[ix])
+                            im[i,j] = avg
+            
+            for j in arange(Y, 0, -skip):
+                for i in arange(X, backwardi, -skip):
+                    # Check if th epixel is dead, i.e. empty
+                    if isnan(im[i,j]):
+                        # Get its neighbours as a np array
+                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
+                        # If there are at leas 4 neighbours, replace the value with a mean
+                        if sum(isfinite(nbg)) >= 4:
+                            ix = where(isfinite(nbg))[0]
+                            avg = mean(nbg[ix])
+                            im[i,j] = avg
     return im
 
 def getEUVMaskCoordinates(latlim=[-89.5,89.5],lonlim=[-180,180],nlat=180,nlon=360):
@@ -170,53 +214,6 @@ def getEUVMask(time,nlat=180,nlon=360,
     else:
         return 0, 0, 0
 
-
-#def plotCartoMap(latlim=[0,75],lonlim=[-40,40],parallels=[],meridians=[],
-#                 figsize=(12,8),projection='stereo',title='',resolution='110m',
-#                 states=True,grid_linewidth=0.5,grid_color='black',terrain=False,
-#                 grid_linestyle='--', background_color=None,border_color='k'):
-#
-#    STATES = cfeature.NaturalEarthFeature(
-#            category='cultural',
-#            name='admin_1_states_provinces_lines',
-#            scale='50m',
-#            facecolor='none')
-#    if figsize is None:
-#        figsize = (12,8)
-#    plt.figure(figsize=figsize)
-#    if projection == 'stereo':
-#        ax = plt.axes(projection=ccrs.Stereographic(central_longitude=(sum(lonlim)/2)))
-#    if projection == 'merc':
-#        ax = plt.axes(projection=ccrs.Mercator())
-#    if projection == 'plate':
-#        ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=(sum(lonlim)/2)))
-#    if background_color is not None:
-#        ax.background_patch.set_facecolor(background_color)
-#    ax.set_title(title)
-#    ax.coastlines(color=border_color,resolution=resolution) # 110m, 50m or 10m
-#    if states:
-#        ax.add_feature(STATES, edgecolor=border_color)
-#    ax.add_feature(cfeature.BORDERS,edgecolor=border_color)
-#    if terrain:
-#        ax.stock_img()
-#    ax.set_extent([lonlim[0], lonlim[1], latlim[0], latlim[1]])
-#    
-#    if projection != 'merc':
-#        gl = ax.gridlines(crs=ccrs.PlateCarree(),color=grid_color,
-#                          linestyle=grid_linestyle,linewidth=grid_linewidth)
-#    else:
-#        gl = ax.gridlines(crs=ccrs.PlateCarree(),color=grid_color,draw_labels=True,
-#                          linestyle=grid_linestyle,linewidth=grid_linewidth)
-#        gl.xlabels_top=False
-#        gl.ylabels_right=False
-#    gl.xlocator = mticker.FixedLocator(meridians)
-#    gl.ylocator = mticker.FixedLocator(parallels)
-#    gl.xlabels_top = False
-#    gl.xformatter = LONGITUDE_FORMATTER
-#    gl.yformatter = LATITUDE_FORMATTER
-#    
-#    return ax
-
 def makeImage(im, pixel_iter):
     im = fillPixels(im, pixel_iter)
     im = fillPixels(im)
@@ -245,27 +242,29 @@ def getTotalityCenter(fn='/home/smrak/Documents/eclipse/totality.h5'):
 if __name__ == '__main__':
     from argparse import ArgumentParser
     p = ArgumentParser()
-    p.add_argument('year', type=str)
-    p.add_argument('day', type=str)
-    p.add_argument('t0', type=str, help='Processing start time', default='00:00')
-    p.add_argument('t1', type=str, help='Processing start time', default='01:00')
+    p.add_argument('file', type=str, help='Input HDF5 file')
+    p.add_argument('t0', type=str, help='Processing start time yyyy-mm-dd')
+    p.add_argument('t1', type=str, help='Processing start time yyyy-mm-dd')
     p.add_argument('cfg', type=str)
+    p.add_argument('--odir', type=str, help='Output directory', default=None)
     p.add_argument('-m', '--cfgmap', type=str, help='Yaml configuration file with the map settings',
                    default='map/example_map.yaml')
     
     P = p.parse_args()
-
-    year = P.year
-    day = P.day
-    t0 = P.t0
-    t1 = P.t1
     
-    timelim = [datetime.strptime('{} {} {} 0'.format(year, day, t0),'%Y %j %H:%M %S'),
-               datetime.strptime('{} {} {} 0'.format(year, day, t1),'%Y %j %H:%M %S')]
-
-    stream = yaml.load(open(P.cfg, 'r'))
-    gpsfn = stream.get('datafn')
-    savepath = stream.get('savedir')
+    assert P.file.endswith('.h5')
+    gpsfn = P.file
+    
+    t0 = parser.parse(P.t0)
+    t1 = parser.parse(P.t1)
+    timelim = [t0, t1]
+    dirnametime = t0.strftime('%y%m%d')
+    
+    try:
+        stream = yaml.load(open(P.cfg, 'r'))
+    except:
+        stream = yaml.load(open(os.path.join(os.getcwd(), P.cfg), 'r'))
+    
     
     fillpixel_iter = stream.get('fillpixel_iter')
     skip = stream.get('skip')
@@ -273,29 +272,23 @@ if __name__ == '__main__':
     latlim = stream.get('latlim')
     lonlim = stream.get('lonlim')
     clim = stream.get('clim')
-    
-    # Position X
-    position = stream.get('position') # [lon,lat]
-
-    # Map limits
-    if stream.get('maplatlim') is not None:
-        maplonlim = stream.get('maplonlim')
-        maplatlim = stream.get('maplatlim')
+    cmap = stream.get('cmap')
+    # Coordinates' lines
+    parallels = stream.get('parallels')
+    meridians = stream.get('meridians')
+    mag_parallels = stream.get('mag_parallels')
+    mag_meridians = stream.get('mag_meridians')
+    mlon_cs = stream.get('mlon_cs')
+    if (mag_parallels is not None) or (mag_meridians is not None):
+        apex = True
     else:
-        maplonlim = [-135, -65]
-        maplatlim = [20, 55]
-        
-    #Map params
-    if stream.get('meridians') is not None:
-        parallels = stream.get('parallels')
-        meridians = stream.get('meridians')
-    else:
-        parallels = [10,20,30,40,50,60]
-        meridians = [-140,-120,-100,-80,-60]
-    
+        apex = False
     # Map settings
     mapcfg = P.cfgmap
-    streammap = yaml.load(open(mapcfg, 'r'))
+    try:
+        streammap = yaml.load(open(mapcfg, 'r'))
+    except:
+        streammap = yaml.load(open(os.path.join(os.getcwd(), mapcfg), 'r'))
     figure_size = streammap.get('figure_size')
     background_color = streammap.get('background_color')
     border_color = streammap.get('border_color')
@@ -303,10 +296,9 @@ if __name__ == '__main__':
     grid_linestyle = streammap.get('grid_linestyle')
     grid_linewidth = streammap.get('grid_linewidth')
     terrain = streammap.get('terrain')
-    
+    states = streammap.get('states')
     # Image params
     image_type = streammap.get('image_type')
-    cmap = streammap.get('cmap')
     image_nlevels = streammap.get('image_nlevels')
     
     # Overlays @ eclipse
@@ -328,6 +320,10 @@ if __name__ == '__main__':
     xgrid = gpsdata['data/xgrid'].value
     ygrid = gpsdata['data/ygrid'].value
     im = gpsdata['data/im'][:][:][:]
+    try:
+        altkm = gpsdata.attrs['altkm']
+    except:
+        altkm = 0
     datetimetime = array([datetime.utcfromtimestamp(t) for t in time])
     
     idt = where( (datetimetime >= timelim[0]) & ((datetimetime <= timelim[1])))[0]
@@ -341,13 +337,17 @@ if __name__ == '__main__':
     j = 0
     for i in iterate2:
         print ('Plotting figure {}/{}'.format(j+1,iterate2.shape[0]))
-        title = dt[i]
         # Get a map
-        ax = cm.geogmap(figsize=figure_size, projection=projection,title=title,
-                          terrain=terrain, lonlim=lonlim,latlim=latlim,
+        fig, ax = gm.plotCartoMap(figsize=figure_size, projection=projection, #title=dt[i],
+                          terrain=terrain, states=states, border_color=border_color,
+                          background_color=background_color, 
+                          lonlim=lonlim,latlim=latlim,
+                          title="{}, alt = {} km".format(dt[i], altkm),
                           meridians=meridians, parallels=parallels,
                           grid_linewidth=grid_linewidth,grid_color=grid_color,
-                          background_color=background_color, border_color=border_color)
+                          apex=apex, mlon_cs=mlon_cs, date=dt[i],
+                          mlon_levels=mag_meridians, mlat_levels=mag_parallels
+                          )
         image = im[j].result()
         j+=1
         # Plot image
@@ -356,15 +356,18 @@ if __name__ == '__main__':
                 levels = linspace(clim[0],clim[1], 40)
                 image[image<=clim[0]] = levels[0]
                 image[image>=clim[1]] = levels[-1]
-                cs = plt.contourf(xgrid,ygrid,image.T, levels=levels,cmap=cmap, transform=ccrs.PlateCarree())
-                cs.cmap.set_under('b')
-                cs.cmap.set_over('r')
+                imax = plt.contourf(xgrid,ygrid,image.T, levels=levels,cmap=cmap, transform=ccrs.PlateCarree())
+                imax.cmap.set_under('b')
+                imax.cmap.set_over('r')
             else:
-                plt.pcolormesh(xgrid,ygrid,image.T,cmap=cmap, transform=ccrs.PlateCarree())
+                imax = plt.pcolormesh(xgrid,ygrid,image.T,cmap=cmap, transform=ccrs.PlateCarree())
                 
             plt.clim(clim)
-            cbar = plt.colorbar(ticks=[clim[0], clim[0]/2, 0, clim[1]/2, clim[1]])
-            cbar.set_label('$\Delta$TEC [TECu]')
+#            cbar = plt.colorbar()
+#            cbar.set_label('$\Delta$TEC [TECu]')
+            posn = ax.get_position()
+            cax = fig.add_axes([posn.x0+posn.width+0.01, posn.y0, 0.02, posn.height])
+            fig.colorbar(imax, cax=cax, label='TEC [TECu]',ticks=[clim[0], clim[0]/2, 0, clim[1]/2, clim[1]])
     
             if totality:
                 lon_c, lat_c = getTotalityCenter()
@@ -389,17 +392,24 @@ if __name__ == '__main__':
                 except:
                     pass
             # Marker
-            if position is not None:
-                try:
-                    plt.plot(position[0],position[1], marker, c=marker_color, ms=marker_size, mew=marker_width, transform=ccrs.PlateCarree())
-                except:
-                    print ('Couldnt plot the marker')
-            ax.set_extent([maplonlim[0], maplonlim[1],
-                           maplatlim[0], maplatlim[1]],crs=ccrs.PlateCarree())
-            ax.set_aspect('auto')
+#            if position is not None:
+#                try:
+#                    plt.plot(position[0],position[1], marker, c=marker_color, ms=marker_size, mew=marker_width, transform=ccrs.PlateCarree())
+#                except:
+#                    print ('Couldnt plot the marker')
+#            ax.set_extent([maplonlim[0], maplonlim[1],
+#                           maplatlim[0], maplatlim[1]],crs=ccrs.PlateCarree())
+#            ax.set_aspect('auto')
         except Exception as e:
             print (e)
-        tit = int(gu.datetime2posix([dt[i]])[0])
-        plt.savefig(savepath+str(tit)+'.png', dpi=200)
+            
+        # Save
+        
+        odir = P.odir if P.odir is not None else '/media/smrak/gnss/images/{}/'.format(dirnametime+'_'+str(int(altkm)))
+        if not os.path.exists(odir):
+            import subprocess
+            subprocess.call('mkdir -p {}'.format(odir), shell=True, timeout=2)
+        tit = dt[i].strftime('%m%d_%H%M')
+        plt.savefig(odir+str(tit)+'.png', dpi=150)
         plt.close()
 
