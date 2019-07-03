@@ -7,24 +7,19 @@ Created on Wed Mar 28 13:22:26 2018
 """
 
 import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
 import matplotlib.colors as colors
-from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
-import nexrad_quickplot as nq
 
 from cartomap import geogmap as gm
 from glob import glob
 from dateutil import parser
 import h5py, os
 import yaml
-from numpy import array, where, ma, isnan, arange, mean, isfinite, mgrid, sort
+from numpy import array, where, ma, isnan, arange, mean, isfinite, mgrid, sort, ones
 from numpy import fromfile, float32, linspace, floor, ceil, add, multiply, copy
 from numpy import meshgrid, rot90, flip, ndarray
 from datetime import datetime
 from scipy import ndimage
-from pyGnss import gnssUtils as gu
 
 import concurrent.futures
 
@@ -91,7 +86,8 @@ def returndTEC(fn,dtype='single',darg=1,time='dt'):
         t = t0
     return t, xgrid, ygrid, im
 
-def returnNEXRAD(folder, downsample=1, dtype='single',darg='',im_mask=220,RGB=0):
+def returnNEXRAD(folder, downsample=1, dtype='single',darg='',im_mask=220, RGB=0):
+    import nexrad_quickplot as nq
     if dtype == 'single':
         nqr = nq.load(folder + darg, downsample=downsample)
     nqr_lon = nqr.lon
@@ -103,7 +99,6 @@ def returnNEXRAD(folder, downsample=1, dtype='single',darg='',im_mask=220,RGB=0)
     else:
         Z = ma.masked_where((nqr_im>=im_mask),nqr_im)
     X,Y = meshgrid(nqr_lon,nqr_lat)
-    
     
     return X,Y,Z
 
@@ -135,9 +130,7 @@ def fillPixels(im, N=1):
         starti = 0
         startj = 0
         forwardi = int(floor(0.6*X))
-        forwardj = int(floor(0.6*Y))
         backwardi = int(floor(0.4*X))
-        backwardj = int(floor(0.4*Y))
         if n%2 == 0:
             for i in arange(starti, forwardi, skip):
                 for j in arange(startj, Y, skip):
@@ -243,9 +236,9 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     p = ArgumentParser()
     p.add_argument('file', type=str, help='Input HDF5 file')
-    p.add_argument('t0', type=str, help='Processing start time yyyy-mm-dd')
-    p.add_argument('t1', type=str, help='Processing start time yyyy-mm-dd')
-    p.add_argument('cfg', type=str)
+    p.add_argument('--t0', type=str, help='Processing start time yyyy-mm-dd', default=None)
+    p.add_argument('--t1', type=str, help='Processing start time yyyy-mm-dd', default=None)
+    p.add_argument('--cfg', type=str)
     p.add_argument('--odir', type=str, help='Output directory', default=None)
     p.add_argument('-m', '--cfgmap', type=str, help='Yaml configuration file with the map settings',
                    default='map/example_map.yaml')
@@ -257,14 +250,11 @@ if __name__ == '__main__':
     
     t0 = parser.parse(P.t0)
     t1 = parser.parse(P.t1)
-    timelim = [t0, t1]
-    dirnametime = t0.strftime('%y%m%d')
     
     try:
         stream = yaml.load(open(P.cfg, 'r'))
     except:
         stream = yaml.load(open(os.path.join(os.getcwd(), P.cfg), 'r'))
-    
     
     fillpixel_iter = stream.get('fillpixel_iter')
     skip = stream.get('skip')
@@ -324,12 +314,19 @@ if __name__ == '__main__':
         altkm = gpsdata.attrs['altkm']
     except:
         altkm = 0
-    datetimetime = array([datetime.utcfromtimestamp(t) for t in time])
     
-    idt = where( (datetimetime >= timelim[0]) & ((datetimetime <= timelim[1])))[0]
+    
+    datetimetime = array([datetime.utcfromtimestamp(t) for t in time])
+    dirnametime = [0].strftime('%y%m%d')
+    if t0 is not None and t1 is not None:
+        timelim = [t0, t1]
+        idt = ones(datetimetime.size, dtype=bool)
+    else:
+        idt = where( (datetimetime >= timelim[0]) & ((datetimetime <= timelim[1])))[0]
+    
     dt = datetimetime[idt]
-    iterate1 = arange(idt[0],idt[-1]+1,skip)
-    iterate2 = arange(0,len(dt),skip)
+    iterate1 = arange(idt[0], idt[-1]+1, skip)
+    iterate2 = arange(0, dt.size, skip)
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=50) as ex:
         im = [ex.submit(makeImage, im[i], fillpixel_iter) for i in iterate1]
