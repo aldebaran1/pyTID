@@ -1,0 +1,20 @@
+{
+fillpixel_iter: 3,
+skip: 1,
+projection: stereo,
+nightshade = 0,
+latlim: [5, 55],
+lonlim: [-130, -60],
+
+clim: [-0.1, 0.1],
+image_type: im,
+#image_nlevels: 20,
+cmap: jet,
+
+parallels: [-20,0,20,40,60,80],
+meridians: [-180,-160,-140,-120,-100,-80,-60,-40,-20],
+#mag_parallels: [0, 20, 40, 60, 80],
+#mag_meridians: [0, 4, 8, 12, 16, 20],
+mlon_cs: mlt,
+
+}

@@ -1,0 +1,29 @@
+{
+# Map
+figure_size: [12,8], # In inches!
+background_color: 'grey',
+border_color: 'w', #'#006600', #soft green
+grid_color: 'k',
+grid_linestyle: '--',
+grid_linewidth: 1,
+terrain: False,
+states: False,
+
+# Geomagnetic coordines
+#mag_coords: True,
+#mag_coords_type: mlt,
+#mlon_lines: [0,2,4,6,8,10,12,14,16,18,20,22,24],
+#mlat_lines: [0,10,20,30,40,50,60,70,80],
+mlon_colors: 'w',
+mlat_colors: 'w',
+mgrid_width: 2,
+mgrid_fontsize: 16,
+
+# Markers/optional
+
+# marker: True,
+# marker_color: red,
+# marker_size: 25,
+# marker_width: 4,
+
+}
