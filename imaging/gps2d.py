@@ -306,9 +306,9 @@ if __name__ == '__main__':
     
     # GPS Images
     gpsdata = h5py.File(gpsfn, 'r')
-    time = gpsdata['data/time'].value
-    xgrid = gpsdata['data/xgrid'].value
-    ygrid = gpsdata['data/ygrid'].value
+    time = gpsdata['data/time'][:]
+    xgrid = gpsdata['data/xgrid'][:]
+    ygrid = gpsdata['data/ygrid'][:]
     im = gpsdata['data/im'][:][:][:]
     try:
         altkm = gpsdata.attrs['altkm']
@@ -402,7 +402,9 @@ if __name__ == '__main__':
             
         # Save
         
-        odir = P.odir if P.odir is not None else '/media/smrak/gnss/images/{}/'.format(dirnametime+'_'+str(int(altkm)))
+        odir = P.odir if P.odir is not None else '/media/smrak/gnss/images/'
+        odir = odir + dirnametime + '_' + str(int(altkm)) + '/'
+        print (odir)
         if not os.path.exists(odir):
             import subprocess
             subprocess.call('mkdir -p {}'.format(odir), shell=True, timeout=2)
