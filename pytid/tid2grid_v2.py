@@ -118,7 +118,7 @@ if __name__ == '__main__':
         folder = os.path.split(fname)[0]
         root = os.path.split(fname)[1]
         rr = str(resolution).replace('.', '')
-        filename = 'grid_{}_altkm_{}_{}'.format(rr, P.altkm, root)
+        filename = 'grid/grid_{}_altkm_{}_{}'.format(rr, P.altkm, root)
         savefn = folder + filename
     f = makeTheHDF(time,xgrid[:,0],ygrid[0,:],images,savefn)
     timestamp = datetime.now()
@@ -126,4 +126,5 @@ if __name__ == '__main__':
     f.attrs[u'lonlim'] = '{} - {}'.format(lonlim[0],lonlim[1])
     f.attrs[u'latlim'] = '{} - {}'.format(latlim[0],latlim[1])
     f.attrs[u'resolution'] = resolution
+    f.attrs[u'altkm'] = P.altkm
     f.close()
