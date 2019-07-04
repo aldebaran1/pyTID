@@ -248,9 +248,6 @@ if __name__ == '__main__':
     assert P.file.endswith('.h5')
     gpsfn = P.file
     
-    t0 = parser.parse(P.t0)
-    t1 = parser.parse(P.t1)
-    
     try:
         stream = yaml.load(open(P.cfg, 'r'))
     except:
@@ -318,8 +315,8 @@ if __name__ == '__main__':
     
     datetimetime = array([datetime.utcfromtimestamp(t) for t in time])
     dirnametime = datetimetime[0].strftime('%y%m%d')
-    if t0 is not None and t1 is not None:
-        timelim = [t0, t1]
+    if P.t0 is not None and P.t1 is not None:
+        timelim = [P.t0, P.t1]
         idt = where( (datetimetime >= timelim[0]) & ((datetimetime <= timelim[1])))[0]
     else:
         idt = ones(datetimetime.size, dtype=bool)
@@ -404,7 +401,7 @@ if __name__ == '__main__':
         
         odir = P.odir if P.odir is not None else '/media/smrak/gnss/images/'
         odir = odir + dirnametime + '_' + str(int(altkm)) + '/'
-        print (odir)
+        
         if not os.path.exists(odir):
             import subprocess
             subprocess.call('mkdir -p {}'.format(odir), shell=True, timeout=2)
