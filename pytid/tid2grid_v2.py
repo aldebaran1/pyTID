@@ -79,7 +79,7 @@ if __name__ == '__main__':
     savefn = P.ofn
     mode = P.mode
     
-    stream = yaml.load(open(cfg, 'r'))
+    stream = yaml.load(open(cfg, 'r'), Loader=yaml.SafeLoader)
     lonlim = P.x if P.x is not None else stream.get('lonlim')
     latlim = P.y if P.y is not None else stream.get('latlim')
     resolution = P.resolution if P.resolution is not None else stream.get('resolution')

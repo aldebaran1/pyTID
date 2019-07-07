@@ -45,8 +45,8 @@ def _mkrngs(y0, idf, gap_length=10, lim=0.05, min_length=None, max_length=None,
     if max_length is not None:
         mask = np.squeeze(np.diff(ranges) < max_length)
         ranges = ranges[mask]
-    if len(ranges.shape) == 3:
-        if isinstance(ranges, np.ndarray):
+    if isinstance(ranges, np.ndarray):
+        if len(ranges.shape) == 3:
             if ranges.shape[0] != 0: 
                 ranges = ranges[0]
     try:
@@ -67,7 +67,7 @@ def _cubicSplineFit(x, idf):
     x1 = np.arange(x.size)
     CSp = CubicSpline(x0, x[idf])
     y = CSp(x1)
-    return y, idf
+    return y
     
 def detrend(x, polynom_list=None, eps=1):
     if polynom_list is None:
@@ -105,7 +105,7 @@ if __name__ == '__main__':
         SBFOLDER = '/media/smrak/gnss/jplg/'
         SAVEFOLDER = '/media/smrak/gnss/hdf/'
     else:
-        yamlcfg = yaml.load(open(P.cfg, 'r'))
+        yamlcfg = yaml.load(open(P.cfg, 'r'), Loader=yaml.SafeLoader)
         OBSFOLDER = yamlcfg.get('obsfolder')
         NAVFOLDER = yamlcfg.get('navfolder')
         SBFOLDER = yamlcfg.get('sbfolder')
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     # Obs nav
     nc_root = os.path.join(OBSFOLDER, str(year))
     # Filter input files
-    stream = yaml.load(open(rxlist, 'r'))
+    stream = yaml.load(open(rxlist, 'r'), Loader=yaml.SafeLoader)
     rxn = stream.get('rx')
     rx_total = stream.get('total')
     nc_folder = os.path.join(nc_root, str(day)) + '/'
@@ -247,12 +247,8 @@ if __name__ == '__main__':
                         else:
                             stec[r[0]:r[-1]] = pyGnss.slantTEC(C1[r[0]:r[-1]], C2[r[0]:r[-1]], 
                                                           L1[r[0]:r[-1]], L2[r[0]:r[-1]])
-#                    stec += sb
-#                    F = pyGnss.getMappingFunction(elv, 350)
-#                    tec = stec * F
-#                    tecd = gu.getPlainResidual(tec, Ts=tsps, typ='none', 
-#                                               maxjump=5, weights=[1,4,7,10])
-                            
+                    if np.sum(np.isfinite(stec)) < 100:
+                        continue
                     stec_zero_bias = np.nanmin(stec)
                     stec -= stec_zero_bias + 1
                     idf_stec = np.isfinite(stec)

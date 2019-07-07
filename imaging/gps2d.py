@@ -32,7 +32,7 @@ def _toLuma(x):
     gg = multiply(x[:,:,1], 0.7152)
     bb = multiply(x[:,:,2], 0.0722)
     yy = add(rr,gg,bb)
-    
+
     return yy
 
 def returndTEC(fn,dtype='single',darg=1,time='dt'):
@@ -51,14 +51,14 @@ def returndTEC(fn,dtype='single',darg=1,time='dt'):
     def _getIndex(t,t0):
         i = abs(t-t0).argmin()
         return i
-    
+
     f = h5py.File(fn, 'r')
     xgrid = f['data/xgrid'].value
     ygrid = f['data/ygrid'].value
     t0 = f['data/time'].value
     t = array([datetime.utcfromtimestamp(t) for t in t0])
     im = f['data/im']
-    
+
     if dtype == 'single':
         i = darg
         im = f['data/im'][i]
@@ -99,7 +99,7 @@ def returnNEXRAD(folder, downsample=1, dtype='single',darg='',im_mask=220, RGB=0
     else:
         Z = ma.masked_where((nqr_im>=im_mask),nqr_im)
     X,Y = meshgrid(nqr_lon,nqr_lat)
-    
+
     return X,Y,Z
 
 def getNeighbours(image,i,j,N=3):
@@ -166,7 +166,7 @@ def fillPixels(im, N=1):
                             ix = where(isfinite(nbg))[0]
                             avg = mean(nbg[ix])
                             im[i,j] = avg
-            
+
             for j in arange(Y, 0, -skip):
                 for i in arange(X, backwardi, -skip):
                     # Check if th epixel is dead, i.e. empty
@@ -195,7 +195,7 @@ def getEUVMask(time,nlat=180,nlon=360,
     flist = sort(glob(EUVDIR+'*.bin'))
     if isinstance(time, float) or isinstance(time, int):
         Tframe_full = datetime.utcfromtimestamp(time)
-    else: 
+    else:
         Tframe_full = time
     if int(Tframe_full.strftime('%H')) >= 16 and int(Tframe_full.strftime('%H')) < 22:
         # find right filename extension
@@ -220,14 +220,14 @@ def getTotality():
         lon_n = totality_path['path/north_lon'].value
         lat_s = totality_path['path/south_lat'].value
         lon_s = totality_path['path/south_lon'].value
-        
+
         return lon_s, lat_s, lon_n, lat_n
-    
+
 def getTotalityCenter(fn='/home/smrak/Documents/eclipse/totality.h5'):
     totality_path = h5py.File(fn, 'r')
     lat_c = totality_path['path/center_lat'].value
     lon_c = totality_path['path/center_lon'].value
-    
+
     return lon_c, lat_c
 
 # Imageinput
@@ -242,17 +242,17 @@ if __name__ == '__main__':
     p.add_argument('--odir', type=str, help='Output directory', default=None)
     p.add_argument('-m', '--cfgmap', type=str, help='Yaml configuration file with the map settings',
                    default='map/example_map.yaml')
-    
+
     P = p.parse_args()
-    
+
     assert P.file.endswith('.h5')
     gpsfn = P.file
-    
+
     try:
-        stream = yaml.load(open(P.cfg, 'r'))
+        stream = yaml.load(open(P.cfg, 'r'), Loader=yaml.SafeLoader)
     except:
-        stream = yaml.load(open(os.path.join(os.getcwd(), P.cfg), 'r'))
-    
+        stream = yaml.load(open(os.path.join(os.getcwd(), P.cfg), 'r'), Loader=yaml.SafeLoader)
+
     fillpixel_iter = stream.get('fillpixel_iter')
     skip = stream.get('skip')
     projection = stream.get('projection')
@@ -273,9 +273,9 @@ if __name__ == '__main__':
     # Map settings
     mapcfg = P.cfgmap
     try:
-        streammap = yaml.load(open(mapcfg, 'r'))
+        streammap = yaml.load(open(mapcfg, 'r'), Loader=yaml.SafeLoader)
     except:
-        streammap = yaml.load(open(os.path.join(os.getcwd(), mapcfg), 'r'))
+        streammap = yaml.load(open(os.path.join(os.getcwd(), mapcfg), 'r'), Loader=yaml.SafeLoader)
     figure_size = streammap.get('figure_size')
     background_color = streammap.get('background_color')
     border_color = streammap.get('border_color')
@@ -287,12 +287,12 @@ if __name__ == '__main__':
     # Image params
     image_type = streammap.get('image_type')
     image_nlevels = streammap.get('image_nlevels')
-    
+
     # Overlays @ eclipse
     totality = streammap.get('totality')
     penumbra = streammap.get('penumbra')
     laplacian = streammap.get('laplacian')
-    
+
     laplacian_levels = streammap.get('laplacian_levels')
     penumbra_levels = streammap.get('penumbra_levels')
     # Marker
@@ -300,7 +300,7 @@ if __name__ == '__main__':
     marker_color = streammap.get('marker_color')
     marker_size = streammap.get('marker_size')
     marker_width = streammap.get('marker_width')
-    
+
     # GPS Images
     gpsdata = h5py.File(gpsfn, 'r')
     time = gpsdata['data/time'][:]
@@ -311,30 +311,29 @@ if __name__ == '__main__':
         altkm = gpsdata.attrs['altkm']
     except:
         altkm = 0
-    
-    
+
     datetimetime = array([datetime.utcfromtimestamp(t) for t in time])
     dirnametime = datetimetime[0].strftime('%y%m%d')
     if P.t0 is not None and P.t1 is not None:
         timelim = [P.t0, P.t1]
-        idt = where( (datetimetime >= timelim[0]) & ((datetimetime <= timelim[1])))[0]
+        idt = (datetimetime >= timelim[0]) & (datetimetime <= timelim[1])
     else:
         idt = ones(datetimetime.size, dtype=bool)
-    
+
     dt = datetimetime[idt]
-    iterate1 = arange(idt[0], idt[-1]+1, skip)
+    iterate1 = arange(where(idt==1)[0][0], where(idt==1)[0][-1]+1, skip)
     iterate2 = arange(0, dt.size, skip)
-    
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=50) as ex:
         im = [ex.submit(makeImage, im[i], fillpixel_iter) for i in iterate1]
-    
+
     j = 0
     for i in iterate2:
         print ('Plotting figure {}/{}'.format(j+1,iterate2.shape[0]))
         # Get a map
         fig, ax = gm.plotCartoMap(figsize=figure_size, projection=projection, #title=dt[i],
                           terrain=terrain, states=states, border_color=border_color,
-                          background_color=background_color, 
+                          background_color=background_color,
                           lonlim=lonlim,latlim=latlim,
                           title="{}, alt = {} km".format(dt[i], altkm),
                           meridians=meridians, parallels=parallels,
@@ -355,14 +354,14 @@ if __name__ == '__main__':
                 imax.cmap.set_over('r')
             else:
                 imax = plt.pcolormesh(xgrid,ygrid,image.T,cmap=cmap, transform=ccrs.PlateCarree())
-                
+
             plt.clim(clim)
 #            cbar = plt.colorbar()
 #            cbar.set_label('$\Delta$TEC [TECu]')
             posn = ax.get_position()
             cax = fig.add_axes([posn.x0+posn.width+0.01, posn.y0, 0.02, posn.height])
             fig.colorbar(imax, cax=cax, label='TEC [TECu]',ticks=[clim[0], clim[0]/2, 0, clim[1]/2, clim[1]])
-    
+
             if totality:
                 lon_c, lat_c = getTotalityCenter()
                 plt.plot(lon_c, lat_c-1, 'k', lw=1, transform=ccrs.PlateCarree())
@@ -375,8 +374,8 @@ if __name__ == '__main__':
                         if laplacian_levels is None:
                             laplacian_levels = [0.005,0.035,10]
                         levels = linspace(laplacian_levels[0],laplacian_levels[1],laplacian_levels[2])
-                        plt.contour(xgm,ygm,data.T, levels, cmap=cmap1,transform=ccrs.PlateCarree())#, alpha=0.9, norm=colors.PowerNorm(gamma=0.7), 
-                        
+                        plt.contour(xgm,ygm,data.T, levels, cmap=cmap1,transform=ccrs.PlateCarree())#, alpha=0.9, norm=colors.PowerNorm(gamma=0.7),
+
                     else:
                         if penumbra_levels is not None:
                             penumbra_levels = [0.2,1,40]
@@ -396,16 +395,15 @@ if __name__ == '__main__':
 #            ax.set_aspect('auto')
         except Exception as e:
             print (e)
-            
+
         # Save
-        
+
         odir = P.odir if P.odir is not None else '/media/smrak/gnss/images/'
         odir = odir + dirnametime + '_' + str(int(altkm)) + '/'
-        
+
         if not os.path.exists(odir):
             import subprocess
             subprocess.call('mkdir -p {}'.format(odir), shell=True, timeout=2)
         tit = dt[i].strftime('%m%d_%H%M')
         plt.savefig(odir+str(tit)+'.png', dpi=150)
         plt.close()
-
