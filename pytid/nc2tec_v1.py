@@ -96,6 +96,7 @@ if __name__ == '__main__':
     p.add_argument('--cfg', help = 'Path to the config (yaml) file', default = None)
     p.add_argument('--log', help = 'If you prefer to make a .log file?', action = 'store_true')
     p.add_argument('--stec', help = 'Save slant TEC?', action = 'store_true')
+    p.add_argument('--zeromean', help = 'Want to sheck each dtec sector is ~~zero mean?', action = 'store_true')
     P = p.parse_args()
     
     # GLOBAL VARIABLES
@@ -105,7 +106,7 @@ if __name__ == '__main__':
         SBFOLDER = '/media/smrak/gnss/jplg/'
         SAVEFOLDER = '/media/smrak/gnss/hdf/'
     else:
-        yamlcfg = yaml.load(open(P.cfg, 'r'))
+        yamlcfg = yaml.load(open(P.cfg, 'r'), Loader=yaml.SafeLoader)
         OBSFOLDER = yamlcfg.get('obsfolder')
         NAVFOLDER = yamlcfg.get('navfolder')
         SBFOLDER = yamlcfg.get('sbfolder')
@@ -118,15 +119,15 @@ if __name__ == '__main__':
     el_mask = P.elmask
     tlim = P.tlim
     Ts = P.ts
-    
+    zero_mean = P.zeromean
     eps = 5
     weights=[1, 4, 7, 10]
     
     # Obs nav
     nc_root = os.path.join(OBSFOLDER, str(year))
     # Filter input files
-    stream = yaml.load(open(rxlist, 'r'))
-    rxn = stream.get('rx')
+    stream = yaml.load(open(rxlist, 'r'), Loader=yaml.FullLoader)
+    rxn = np.array(stream.get('rx'))
     rx_total = stream.get('total')
     nc_folder = os.path.join(nc_root, str(day)) + '/'
     nc_list = np.array(sorted(glob(nc_folder + '*.nc')))
@@ -247,11 +248,6 @@ if __name__ == '__main__':
                         else:
                             stec[r[0]:r[-1]] = pyGnss.slantTEC(C1[r[0]:r[-1]], C2[r[0]:r[-1]], 
                                                           L1[r[0]:r[-1]], L2[r[0]:r[-1]])
-#                    stec += sb
-#                    F = pyGnss.getMappingFunction(elv, 350)
-#                    tec = stec * F
-#                    tecd = gu.getPlainResidual(tec, Ts=tsps, typ='none', 
-#                                               maxjump=5, weights=[1,4,7,10])
                             
                     stec_zero_bias = np.nanmin(stec)
                     stec -= stec_zero_bias + 1
@@ -267,8 +263,12 @@ if __name__ == '__main__':
                         polynom_list = np.arange(0,15)
                         res, err_list = detrend(chunk, polynom_list=polynom_list, eps=eps)
                         res[~idf] = np.nan
-                        if abs(np.nansum(res)) < 5:
-                            tecd[r[0] : r[1]] = res
+                        
+                        if zero_mean:
+                            if abs(np.nansum(res)) < 5:
+                                tecd[r[0] : r[1]] = res
+                        else:
+                            tecd[r[0] : r[1]] = res    
                     
                     # Print the shit
                     tecd[~mask] = np.nan
