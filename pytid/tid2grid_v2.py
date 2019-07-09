@@ -122,14 +122,14 @@ if __name__ == '__main__':
     
     if savefn is None:
         folder = os.path.split(fname)[0]
-        root = os.path.split(fname)[1]
+        root = os.path.split(fname)[1].rstrip('.h5')
         rr = str(resolution).replace('.', '')
-        filename = 'grid/grid_{}_altkm_{}_{}'.format(rr, int(P.altkm), root)
+        filename = 'grid/grid_{}_altkm_{}_res_{}.h5'.format(root, int(P.altkm), rr)
         savefn = folder + filename
     elif not savefn.endswith('.h5'):
-        root = os.path.split(fname)[1]
+        root = os.path.split(fname)[1].rstrip('.h5')
         rr = str(resolution).replace('.', '')
-        addon = '{}_altkm_{}_{}'.format(rr, P.altkm, root)
+        addon = '{}_altkm_{}_res_{}.h5'.format(root, int(P.altkm), rr)
         savefn += addon
     f = makeTheHDF(time,xgrid[:,0],ygrid[0,:],images,savefn)
     timestamp = datetime.now()
