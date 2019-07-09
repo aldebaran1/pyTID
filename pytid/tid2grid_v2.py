@@ -124,7 +124,7 @@ if __name__ == '__main__':
         folder = os.path.split(fname)[0]
         root = os.path.split(fname)[1]
         rr = str(resolution).replace('.', '')
-        filename = 'grid/grid_{}_altkm_{}_{}'.format(rr, P.altkm, root)
+        filename = 'grid/grid_{}_altkm_{}_{}'.format(rr, int(P.altkm), root)
         savefn = folder + filename
     elif not savefn.endswith('.h5'):
         root = os.path.split(fname)[1]
