@@ -74,15 +74,22 @@ if __name__ == '__main__':
     p.add_argument('-y', type=float, help='latitude limits. Default from cfg file', default=None, nargs=2)
     P = p.parse_args()
     
-    fname = P.fname
-    cfg = P.cfg if P.cfg is not None else '/home/smrak/Documents/pyTID/pytid/cfg/t2g_conus.yaml'
+    fname = P.fname   
+    
     savefn = P.ofn
     mode = P.mode
     
-    stream = yaml.load(open(cfg, 'r'), Loader=yaml.SafeLoader)
-    lonlim = P.x if P.x is not None else stream.get('lonlim')
-    latlim = P.y if P.y is not None else stream.get('latlim')
-    resolution = P.resolution if P.resolution is not None else stream.get('resolution')
+
+    if P.cfg is not None:
+        cfg = P.cfg 
+        stream = yaml.load(open(cfg, 'r'))
+        lonlim =  stream.get('lonlim')
+        latlim = stream.get('latlim')
+        resolution = stream.get('resolution')
+    else:
+        resolution = P.resolution
+        lonlim = P.x
+        latlim = P.y
     # Create an image grids
     xgrid, ygrid, im = makeGrid(ylim=latlim, xlim=lonlim, res=resolution)
     ###################################################
@@ -116,10 +123,15 @@ if __name__ == '__main__':
     
     if savefn is None:
         folder = os.path.split(fname)[0]
-        root = os.path.split(fname)[1]
+        root = os.path.split(fname)[1].rstrip('.h5')
         rr = str(resolution).replace('.', '')
-        filename = 'grid/grid_{}_altkm_{}_{}'.format(rr, P.altkm, root)
+        filename = 'grid/grid_{}_altkm_{}_res_{}.h5'.format(root, int(P.altkm), rr)
         savefn = folder + filename
+    elif not savefn.endswith('.h5'):
+        root = os.path.split(fname)[1].rstrip('.h5')
+        rr = str(resolution).replace('.', '')
+        addon = '{}_altkm_{}_res_{}.h5'.format(root, int(P.altkm), rr)
+        savefn += addon
     f = makeTheHDF(time,xgrid[:,0],ygrid[0,:],images,savefn)
     timestamp = datetime.now()
     f.attrs[u'converted'] = timestamp.strftime('%Y-%m-%d')

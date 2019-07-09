@@ -1,0 +1,6 @@
+{
+obsfolder: /projectnb/semetergrp/scint/obs/,
+navfolder: /projectnb/semetergrp/scint/nav/,
+sbfolder: /projectnb/semetergrp/scint/jplg/,
+savefolder: /projectnb/semetergrp/scint/hdf/
+}

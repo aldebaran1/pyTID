@@ -17,7 +17,6 @@ import os
 import h5py
 from argparse import ArgumentParser
 from scipy.interpolate import CubicSpline
-#import matplotlib.pyplot as plt
 
 def _mkrngs(y0, idf, gap_length=10, lim=0.05, min_length=None, max_length=None, 
             zero_mean=False, extend=0):
@@ -62,7 +61,6 @@ def _mkrngs(y0, idf, gap_length=10, lim=0.05, min_length=None, max_length=None,
     return ranges
 
 def _cubicSplineFit(x, idf):
-#    idf = np.isfinite(x)
     x0 = np.where(idf)[0]
     x1 = np.arange(x.size)
     CSp = CubicSpline(x0, x[idf])
@@ -96,6 +94,7 @@ if __name__ == '__main__':
     p.add_argument('--cfg', help = 'Path to the config (yaml) file', default = None)
     p.add_argument('--log', help = 'If you prefer to make a .log file?', action = 'store_true')
     p.add_argument('--stec', help = 'Save slant TEC?', action = 'store_true')
+    p.add_argument('--zeromean', help = 'Want to sheck each dtec sector is ~~zero mean?', action = 'store_true')
     P = p.parse_args()
     
     # GLOBAL VARIABLES
@@ -118,15 +117,16 @@ if __name__ == '__main__':
     el_mask = P.elmask
     tlim = P.tlim
     Ts = P.ts
-    
+    zero_mean = P.zeromean
     eps = 5
     weights=[1, 4, 7, 10]
     
     # Obs nav
     nc_root = os.path.join(OBSFOLDER, str(year))
     # Filter input files
-    stream = yaml.load(open(rxlist, 'r'), Loader=yaml.SafeLoader)
-    rxn = stream.get('rx')
+    stream = yaml.load(open(rxlist, 'r'), Loader=yaml.FullLoader)
+    rxn = np.array(stream.get('rx'))
+
     rx_total = stream.get('total')
     nc_folder = os.path.join(nc_root, str(day)) + '/'
     nc_list = np.array(sorted(glob(nc_folder + '*.nc')))
@@ -247,8 +247,10 @@ if __name__ == '__main__':
                         else:
                             stec[r[0]:r[-1]] = pyGnss.slantTEC(C1[r[0]:r[-1]], C2[r[0]:r[-1]], 
                                                           L1[r[0]:r[-1]], L2[r[0]:r[-1]])
+
                     if np.sum(np.isfinite(stec)) < 100:
                         continue
+
                     stec_zero_bias = np.nanmin(stec)
                     stec -= stec_zero_bias + 1
                     idf_stec = np.isfinite(stec)
@@ -263,8 +265,12 @@ if __name__ == '__main__':
                         polynom_list = np.arange(0,15)
                         res, err_list = detrend(chunk, polynom_list=polynom_list, eps=eps)
                         res[~idf] = np.nan
-                        if abs(np.nansum(res)) < 5:
-                            tecd[r[0] : r[1]] = res
+                        
+                        if zero_mean:
+                            if abs(np.nansum(res)) < 5:
+                                tecd[r[0] : r[1]] = res
+                        else:
+                            tecd[r[0] : r[1]] = res    
                     
                     # Print the shit
                     tecd[~mask] = np.nan
