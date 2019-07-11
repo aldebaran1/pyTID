@@ -16,74 +16,74 @@ import yaml
 import os
 import h5py
 from argparse import ArgumentParser
-from scipy.interpolate import CubicSpline
+import matplotlib.pyplot as plt
+from matplotlib import dates
 
-def _mkrngs(y0, idf, gap_length=10, lim=0.05, min_length=None, max_length=None, 
-            zero_mean=False, extend=0):
-    gap = np.diff(np.where(idf)[0])
-    i00 = np.where(idf)[0][0]
-    i99 = np.where(idf)[0][-1]
-    ixg = np.squeeze(np.argwhere(gap >= gap_length))
-    LL = np.sort(np.hstack((ixg, ixg+1)))
-    inner_limits = np.where(idf)[0][LL]
-    limits = np.sort(np.hstack((i00,inner_limits,i99)))
-    assert limits.size % 2 == 0
-    ranges = limits.reshape(int(limits.size/2), 2)
-    # Check for ranges vlidity: approx. zero mean
-    if zero_mean:
-        mask = []
-        for i, r in enumerate(ranges):
-            m_hat = np.nanmean(y0[r[0]:r[1]])
-            if abs(m_hat) < lim: mask.append(i)
-        if len(mask) > 0:
-            mask = np.array(mask)
-            ranges = ranges[mask]
-    if min_length is not None:
-        mask = np.squeeze(np.diff(ranges) > min_length)
-        ranges = ranges[mask]
-    if max_length is not None:
-        mask = np.squeeze(np.diff(ranges) < max_length)
-        ranges = ranges[mask]
-    if isinstance(ranges, np.ndarray):
-        if len(ranges.shape) == 3:
-            if ranges.shape[0] != 0: 
-                ranges = ranges[0]
-    try:
-        if extend > 0:
-            start = ranges[:,0]
-            ixstart = start > extend + 1
-            ranges[ixstart,0] -= extend
-            stop = ranges[:,1]
-            ixstop = stop < (y0.size - extend - 1)
-            ranges[ixstop, 1] += extend
-    except:
-        pass
-    return ranges
+PLOT = 1
+saveroot = 'C:\\Users\\smrak\\Documents\\data\\detrending\\232\\plots_v0\nc2tec_v1\\'
 
-def _cubicSplineFit(x, idf):
-    x0 = np.where(idf)[0]
-    x1 = np.arange(x.size)
-    CSp = CubicSpline(x0, x[idf])
-    y = CSp(x1)
-    return y
+def plots(dt, stec, elv, tecd_v1, polynom_list, err_list, saveroot=None):
+    global fnc
+    times = np.array([t.astype('datetime64[s]').astype(datetime) for t in dt])
+    fig = plt.figure(figsize=[7,8])
     
-def detrend(x, polynom_list=None, eps=1):
-    if polynom_list is None:
-        polynom_list = np.arange(0,15)
-    err_list = np.nan * np.zeros(polynom_list.size)
-    err_list[:3] = 9999.0
-    for i in polynom_list[2:]:
-        res = gu.phaseDetrend(x, order=i)
-        err = np.nansum(np.abs(res)**2)
-        err_list[i] = err
-        D0 = abs(err_list[i-1] - err)
-        D1 = abs(err_list[i-2] - err_list[i-1])
-        if D0 <= eps and abs(D1 - D0) <= eps*1e-2:
-            break
-    return res, err_list
-
+    ax0 = fig.add_subplot(311)
+    rxname = os.path.split(fnc)[1].split('.')[0][:4]
+    ax0.set_title('{} || rxi: {}; svi: {}'.format(rxname, irx, isv))
+    ax0.plot(times, stec, 'b')
+    ax00 = ax0.twinx()
+    ax00.plot(times, elv, '--g', lw=0.5)
+    ax0.set_ylabel('STEC')
+    ax00.set_ylabel('Elevation', color='g')
+    ax00.tick_params(axis='y', colors='green')
+    
+    ax02 = fig.add_subplot(312, sharex=ax0)
+    ax02.plot(times, tecd_v1, 'b')#, label="Sum = {}".format(np.round(np.nansum(tecd_v1)), 3))
+    ax02.set_xlabel('time [UT]')
+    ax02.set_ylabel('$\Delta$ TEC')
+    ax02.grid(axis='y')
+    
+    ax01 = fig.add_subplot(313)
+    ax011 = ax01.twinx()
+    if len(err_list.shape) == 1:
+        ax01.semilogy(polynom_list[2:], err_list[2:], '.k')
+        ax01.semilogy(polynom_list[2:], err_list[2:], 'k')
+        ax011.semilogy(polynom_list[3:], abs(np.diff(err_list))[2:], 'b', )
+        ax011.semilogy(polynom_list[3:], abs(np.diff(err_list))[2:], '.b')
+        ax011.semilogy([polynom_list[1], polynom_list[-1]], [eps, eps], '--b')
+    elif len(err_list.shape) > 1:
+        for err_list in err_list:
+            ax01.semilogy(polynom_list[2:], err_list[2:], '.k')
+            ax01.semilogy(polynom_list[2:], err_list[2:], 'k')
+            ax011.semilogy(polynom_list[3:], abs(np.diff(err_list))[2:], 'b', )
+            ax011.semilogy(polynom_list[3:], abs(np.diff(err_list))[2:], '.b')
+    ax011.semilogy([polynom_list[1], polynom_list[-1]], [eps, eps], '--r', label='E={}'.format(eps))
+    ax011.legend()
+    ax01.set_xlabel('Polynomial order')
+    ax01.set_ylabel('Error, $|\epsilon |^2$')
+    ax011.set_ylabel('$|\Delta \epsilon |^2$', color='blue')
+    
+    ax011.tick_params(axis='y', colors='blue')
+    ax011.grid(axis='y', color='blue')
+    
+    myFmt = dates.DateFormatter('%H:%M')
+    ax02.xaxis.set_major_formatter(myFmt)
+    plt.setp(ax0.get_xticklabels(), visible=False)
+    plt.setp(ax00.get_xticklabels(), visible=False)
+    ax02.xaxis.set_major_formatter(myFmt)
+    
+    plt.tight_layout()
+    
+    if saveroot is not None:
+        if not os.path.exists(saveroot):
+            import subprocess
+            subprocess.call('mkdir "-p {}"'.format(saveroot), shell=True, timeout=2)
+        sfn = 'rxi{}_svi{}.png'.format(irx, isv)
+        plt.savefig(saveroot + sfn, dpi=100)
+        plt.close(fig)
 
 if __name__ == '__main__':
+    global fnc
     p = ArgumentParser()
     p.add_argument('date')
     p.add_argument('rxlist', type = str, help = 'Rxlist as a .yaml file')
@@ -94,6 +94,7 @@ if __name__ == '__main__':
     p.add_argument('--cfg', help = 'Path to the config (yaml) file', default = None)
     p.add_argument('--log', help = 'If you prefer to make a .log file?', action = 'store_true')
     p.add_argument('--stec', help = 'Save slant TEC?', action = 'store_true')
+    p.add_argument('--use_satbias', help = 'Correct the stec for a satbias?', action = 'store_true')
     p.add_argument('--zeromean', help = 'Want to sheck each dtec sector is ~~zero mean?', action = 'store_true')
     P = p.parse_args()
     
@@ -118,8 +119,8 @@ if __name__ == '__main__':
     tlim = P.tlim
     Ts = P.ts
     zero_mean = P.zeromean
-    eps = 5
-    weights=[1, 4, 7, 10]
+    eps = 1
+#    weights=[1, 4, 7, 10]
     
     # Obs nav
     nc_root = os.path.join(OBSFOLDER, str(year))
@@ -137,9 +138,10 @@ if __name__ == '__main__':
     nav_root = NAVFOLDER
     fnav = os.path.join(nav_root, 'brdc' + str(day) + '0.' + str(year)[2:] + 'n')
     # jplg file
-    jplg_root = SBFOLDER
-    fjplg = os.path.join(jplg_root, 'jplg' + str(day) + '0.' + str(year)[2:] + 'i')
-    satbias = pyGnss.getSatBias(fjplg)
+    if P.use_satbias:
+        jplg_root = SBFOLDER
+        fjplg = os.path.join(jplg_root, 'jplg' + str(day) + '0.' + str(year)[2:] + 'i')
+        satbias = pyGnss.getSatBias(fjplg)
     # Processing options
     satpos = True
     args = ['L1', 'L2']
@@ -181,14 +183,20 @@ if __name__ == '__main__':
     # Output arrays
     svl = 32 #gr.load(fnc[0]).sv.values.shape[0]
     rxl = fnc.shape[0]
-    
-    if P.stec : slanttec = np.nan * np.zeros((tl, svl, rxl))
-    residuals = np.nan * np.zeros((tl, svl, rxl))
-    if Ts == 1: snr = np.nan * np.zeros((tl, svl, rxl))
-    el = np.nan * np.zeros((tl, svl, rxl))
-    az = np.nan * np.zeros((tl, svl, rxl))
-    rxpos = np.nan * np.zeros((rxl, 3))
+    # Polynomial list
+    polynom_list = np.arange(0,16)
+    # Stats
+    # Polynomial orders list for stats
+    polynom_orders = []
+    # Output arrays
+    if P.stec : slanttec = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
+    residuals = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
+    if Ts == 1: snr = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
+    el = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
+    az = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
+    rxpos = np.nan * np.zeros((rxl, 3), dtype=np.float16)
     for irx, fnc in enumerate(fnc):
+        
         # New Array
         TEC = np.nan * np.zeros(t.shape[0], dtype=np.float16)
         TECD = np.nan * np.zeros(t.shape[0], dtype=np.float16)
@@ -213,11 +221,10 @@ if __name__ == '__main__':
                 try:
                     D = pyGnss.dataFromNC(fnc,fnav,sv=sv,tlim=tlim,el_mask=el_mask-10, satpos=True)#, ipp=True, ipp_alt = ipp_alt)
                     idel = D['idel'].values
-#                    sb = satbias[sv]
                     
                     dt = D.time.values
                     tsps = np.diff(dt.astype('datetime64[s]'))[0].astype(int)
-                    elv = D.el.values
+                    elv = D.el.values.astype(np.float16)
                     mask = (np.nan_to_num(elv) >= el_mask)
                     
                     if np.isfinite(D['C1'].values[idel]).shape[0] < (15 / (60/tsps)): 
@@ -247,23 +254,30 @@ if __name__ == '__main__':
                         else:
                             stec[r[0]:r[-1]] = pyGnss.slantTEC(C1[r[0]:r[-1]], C2[r[0]:r[-1]], 
                                                           L1[r[0]:r[-1]], L2[r[0]:r[-1]])
-
-                    if np.sum(np.isfinite(stec)) < 100:
+                    
+                    if np.sum(np.isfinite(stec)) < (15 / (60/tsps)): 
+                        # If shorter than 15 minutes, skip
                         continue
-
-                    stec_zero_bias = np.nanmin(stec)
-                    stec -= stec_zero_bias + 1
+                    if P.use_satbias:
+                        stec -= satbias[sv]
+                    else:
+                        stec_zero_bias = np.nanmin(stec)
+                        stec -= stec_zero_bias - 1
                     idf_stec = np.isfinite(stec)
-                    tec_ranges = _mkrngs(stec, idf_stec, gap_length=10, zero_mean=False)
-                    tecd = np.nan * np.ones(stec.size)
-                    for r in tec_ranges:
+                    tec_ranges = gu.makeranges(stec, idf_stec, gap_length=10, zero_mean=False)
+                    tecd = np.nan * np.ones(stec.size, dtype=np.float16)
+                    for ir, r in enumerate(tec_ranges):
                         chunk = stec[r[0] : r[1]]
                         idf = np.isfinite(chunk)
                         if np.sum(np.isnan(chunk)) > 0:
-                            chunk = _cubicSplineFit(chunk, idf)
+                            chunk = gu.cubicSplineFit(chunk, idf)
                         
-                        polynom_list = np.arange(0,15)
-                        res, err_list = detrend(chunk, polynom_list=polynom_list, eps=eps)
+                        res, err_list0, po = gu.detrend(chunk, polynom_list=polynom_list, eps=eps, mask=mask[r[0]:r[1]], polynomial_order=True)
+                        polynom_orders.append(po)
+                        if ir == 0:
+                            err_list = err_list0
+                        else:
+                            err_list = np.vstack((err_list, err_list0))
                         res[~idf] = np.nan
                         
                         if zero_mean:
@@ -275,7 +289,7 @@ if __name__ == '__main__':
                     # Print the shit
                     tecd[~mask] = np.nan
                     stec[~mask] = np.nan
-    
+                    elv[~mask]] = np.nan
                     ixmask = (np.nan_to_num(elv) >= el_mask)
                     idt = np.isin(t, dt[ixmask])
                     idt_reverse = np.isin(dt[ixmask], t[idt])
@@ -285,6 +299,9 @@ if __name__ == '__main__':
                     if Ts == 1: snr[idt, isv, irx] = S1[ixmask][idt_reverse]
                     el[idt, isv, irx] = D.el.values[ixmask][idt_reverse]
                     az[idt, isv, irx] = D.az.values[ixmask][idt_reverse]
+                    
+                    if PLOT:
+                        plots(dt, stec, elv, tecd, polynom_list, err_list, saveroot=saveroot)
                 except Exception as e:
                     if P.log:
                         LOG.write(str(e) + '\n')
@@ -334,7 +351,6 @@ if __name__ == '__main__':
     h5file.attrs[u'processed'] = timestamp.strftime('%Y-%m-%d')
     h5file.attrs[u'number of receivers'] = rxl
     h5file.attrs[u'el_mask'] = el_mask
-    h5file.attrs[u'weights'] = weights
     
     h5file.close()
     if P.log:
