@@ -313,9 +313,11 @@ if __name__ == '__main__':
         altkm = 0
 
     datetimetime = array([datetime.utcfromtimestamp(t) for t in time])
-    dirnametime = datetimetime[0].strftime('%y%m%d')
+    dirnametime = datetimetime[0].strftime('%Y%m%d')
     if P.t0 is not None and P.t1 is not None:
-        timelim = [P.t0, P.t1]
+        t0 = parser.parse(P.t0)
+        t1 = parser.parse(P.t1)
+        timelim = [t0, t1]
         idt = (datetimetime >= timelim[0]) & (datetimetime <= timelim[1])
     else:
         idt = ones(datetimetime.size, dtype=bool)

@@ -32,7 +32,8 @@ def _runningMax(x,N):
     y = np.nan * np.copy(x)
     for i in iterate:
         chunk = x[i-n2:i+n2]
-        y[i] = np.nanmax(abs(chunk))
+        if np.sum(np.isfinite(chunk)) > 1:
+            y[i] = np.nanmax(abs(chunk))
     return y
 
 def _removeRipple(y, E = 5, L = 300, eps=False):
@@ -158,8 +159,8 @@ def _partialProcess(dt,r, x, fs=1, fc=0.1, hpf_order=6,
     # 4.1 TEC Scintillation
     envelope = _runningMax(abs(tec_hpf), N = 10)
     median_envelope = _runningMedian(envelope, N = 120)
-    outlier_margin = median_envelope + 4 * np.nanstd(tec_hpf)
-    idoutlier = abs(tec_hpf) > outlier_margin
+    outlier_margin = median_envelope + 5 * np.nanstd(tec_hpf)
+    idoutlier = np.nan_to_num(abs(tec_hpf)) > outlier_margin
     
     outlier_mask = np.zeros(tec_hpf.size, dtype = bool)
     if np.nansum(idoutlier) > 0:
@@ -219,15 +220,19 @@ def _toLLT(rxp=None, az=None, el=None, H=350):
     
     return lat, lon
 
-def process(fn, odir=None, cfg=None, log=None):
+def process(fn, odir=None, cfg=None, log=None, irxforce=None):
 
     ############################### Open data ##################################
+    if irxforce is not None:
+        irxforce = int(irxforce)
+    if odir is None:
+        odir = os.path.split(fn)[0] + '/'
     if cfg is None:
         plot_ripple = 0
         plot_outlier = 0
-        savefig = 0
+        savefig = 1
         figfolder = odir + '/plots/'
-        plot = 0
+        plot = 1
         
         fs = 1
         fc = 0.1
@@ -242,8 +247,7 @@ def process(fn, odir=None, cfg=None, log=None):
         savefig = stream.get('savefig')
         figfolder = stream.get('figfolder')
         if figfolder is None:
-            if odir is None:
-                odir = os.path.split(fn)[0] + '/'
+            
             figfolder = odir + '/plots/'
         
         fs = stream.get('fs')
@@ -273,7 +277,10 @@ def process(fn, odir=None, cfg=None, log=None):
     f = h5py.File(fn, 'r')
     time = f['obstimes'][:]
     dt = np.array([datetime.utcfromtimestamp(t) for t in time])
-    rnx = f['el'].shape[2]
+    if irxforce is None:
+        rnx = f['el'].shape[2]
+    else:
+        rnx = 1
     #rnx = 5
     svx = f['el'].shape[1]
     rxpall = f['rx_positions'][:]
@@ -287,7 +294,7 @@ def process(fn, odir=None, cfg=None, log=None):
     receiver_std_median = np.nan * np.zeros((rnx,2))
     
     for irx in range(rnx):
-    #    irx = 0
+        
         if log:
             with open(logfn, 'a') as LOG:
                 LOG.write('Processing Rx/all #{}/{}\n'.format(irx+1, rnx))
@@ -304,13 +311,20 @@ def process(fn, odir=None, cfg=None, log=None):
         snr_outliers = np.zeros((dt.size, svx), dtype=bool)
         try:
             for isv in range(svx):
-        #        isv = 2
                 try:
-                    el = f['el'][:,isv,irx]
-                    az = f['az'][:,isv,irx]
-                    res = f['res'][:,isv,irx]
-                    snr = f['snr'][:,isv,irx]
-                    rxp = rxpall[irx]
+                    if irxforce is not None:
+                        el = f['el'][:,isv,irxforce]
+                        az = f['az'][:,isv,irxforce]
+                        res = f['res'][:,isv,irxforce]
+                        snr = f['snr'][:,isv,irxforce]
+                        rxp = rxpall[irxforce]
+                    else:
+                        el = f['el'][:,isv,irx]
+                        az = f['az'][:,isv,irx]
+                        res = f['res'][:,isv,irx]
+                        snr = f['snr'][:,isv,irx]
+                        rxp = rxpall[irx]
+                    
                     # Compute location of the IPP
                     lat, lon = _toLLT(rxp, az=az, el=el, H=H)
                     # Stack into the output array
@@ -348,6 +362,7 @@ def process(fn, odir=None, cfg=None, log=None):
                     snr_ranges = ranges(snr, idf_snr, min_gap=10, gap_length=10, min_length=30*60)
                 except:
                     snr_ranges = np.array([])
+                
                 # Process TEC per intervals
                 if tec_ranges.size > 0:
                     for ith_range, r in enumerate(tec_ranges):
@@ -368,21 +383,21 @@ def process(fn, odir=None, cfg=None, log=None):
                                 LOG.close()
                             else:
                                 print (e)
-                # Set output values to zero/NaN
                 if snr_ranges.size > 0:
-    #                SNR4 = np.nan * np.copy(snr)
-    #            else:
                     for ith_range, r in enumerate(snr_ranges):
                         # Remove to short ranges if accidentaly do occur
-                        if np.diff(r) < 10: continue
+                        if np.diff(r) < 60: continue
                         try:
                             Schunk = snr[r[0] : r[1]]
                             snr_hpf, snr_hpf_original[r[0]:r[1]], snr_mask = _partialProcess(dt, r, Schunk, fs=fs, fc=fc, hpf_order=hpf_order,
                                                                                              plot_ripple=plot_ripple, plot_outlier=plot_outlier)
                             snr_outliers[r[0] : r[1], isv] = snr_mask
                             snr4_interval = scint.sigmaTEC(snr_hpf, N = 60)
+#                            snr4_interval = scint.s4(Schunk, N = 60)
+    #                        plt.plot(snr4_interval, 'r')
+    #                        plt.show()
                             snr4_copy[r[0] : r[1]] = snr4_interval
-                            snr_hpf_copy[r[0] : r[1]] = snr_hpf
+#                            snr_hpf_copy[r[0] : r[1]] = snr_hpf
                         except Exception as e:
                             if log:
                                 with open(logfn, 'a') as LOG:
@@ -425,10 +440,10 @@ def process(fn, odir=None, cfg=None, log=None):
                 else:
                     print ('Processing scintillation sv/all {}/{}'.format(isv+1, svx))
                 sigma_tec[:,isv,irx] = _scintillationMask(sigma_tec[:,isv,irx], X_hat=st_hat, 
-                                                 X_eps=st_eps, extend=30, N_median=60, 
+                                                 X_eps=st_eps, extend=0, N_median=60, 
                                                  min_length=180)
                 snr4[:,isv,irx] = _scintillationMask(snr4[:,isv,irx], X_hat=s4_hat, X_eps=s4_eps,
-                                                 extend=120)
+                                                 extend=180)
                 #######################################################################
                 # Plot for refernce
                 if plot:
@@ -436,9 +451,17 @@ def process(fn, odir=None, cfg=None, log=None):
                         if np.nansum(np.isfinite(sigma_tec_all[:,isv])) > 1000:
                             fig = plt.figure(figsize=[15,8])
                             ax1 = fig.add_subplot(321)
-                            ax1.plot(dt, f['res'][:,isv,irx], 'b', label='RXi {}; PRN {}'.format(irx, isv+1))
+                            ax12 = ax1.twinx()
+                            if irxforce is None:
+                                ax1.plot(dt, f['res'][:,isv,irx], 'b', label='RXi {}; PRN {}'.format(irx, isv+1))
+                                ax12.plot(dt, f['el'][:,isv,irx], 'g')
+                            else:
+                                ax1.plot(dt, f['res'][:,isv,irxforce], 'b', label='RXi {}; PRN {}'.format(irx, isv+1))
+                                ax12.plot(dt, f['el'][:,isv,irxforce], 'g', lw=0.5)
                             ax1.set_ylabel('$\Delta$ TEC')
                             ax1.grid(axis='both')
+                            ax12.set_ylabel('Elevation', color='g')
+                            ax12.tick_params(axis='y', colors='green')
                             ax1.legend()
                             ax1.set_xticklabels([])
                             # Second
@@ -450,21 +473,26 @@ def process(fn, odir=None, cfg=None, log=None):
                             # Third
                             ax3 = fig.add_subplot(325, sharex=ax1)
                             ax3.plot(dt, sigma_tec_all[:,isv], '.b')
+                            
+                            i0 = np.argwhere(np.isfinite(sigma_tec_all[:,isv]))[0]
+                            i1 = np.argwhere(np.isfinite(sigma_tec_all[:,isv]))[-1]
+                            ax3.plot([dt[i0], dt[i1]], [st_eps, st_eps], '--r')
                             if sum(np.isfinite(sigma_tec[:,isv,irx])) > 0:
-                                i0 = np.argwhere(np.isfinite(sigma_tec_all[:,isv]))[0]
-                                i1 = np.argwhere(np.isfinite(sigma_tec_all[:,isv]))[-1]
-                                ax3.plot([dt[i0], dt[i1]], [st_eps, st_eps], '--r')
                                 ax3.plot(dt, sigma_tec[:,isv,irx], '.g')
                             ax3.set_ylabel('$\sigma_{TEC}$ [TECu]')
+#                            ax3.set_xlim([datetime(2017,9,8,0), datetime(2017,9,8,5)])
                             ax3.grid(axis='both')
                             ax3.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
                             ######################### SNR
-                            ax11 = fig.add_subplot(322)
-                            ax11.plot(dt, f['snr'][:,isv,irx], 'b', label='RXi {}; PRN {}'.format(irx, isv+1))
+                            ax11 = fig.add_subplot(322, sharex=ax1)
+                            if irxforce is None:
+                                ax11.plot(dt, f['snr'][:,isv,irx], 'b', label='RXi {}; PRN {}'.format(irx, isv+1))
+                            else:
+                                ax11.plot(dt, f['snr'][:,isv,irxforce], 'b', label='RXi {}; PRN {}'.format(irx, isv+1))
                             ax11.set_ylabel('SNR')
                             ax11.grid(axis='both')
                             ax11.legend()
-                            ax11.set_xticklabels([])
+#                            ax11.set_xticklabels([])
                             # Second
                             ax21 = fig.add_subplot(324, sharex=ax1)
                             ax21.plot(dt, snr_hpf_all[:,isv], 'b')
@@ -474,16 +502,16 @@ def process(fn, odir=None, cfg=None, log=None):
                             # Third
                             ax31 = fig.add_subplot(326, sharex=ax1)
                             ax31.plot(dt, snr4_all[:,isv], '.b')
+                            i0 = np.argwhere(np.isfinite(snr4_all[:,isv]))[0]
+                            i1 = np.argwhere(np.isfinite(snr4_all[:,isv]))[-1]
+                            ax31.plot([dt[i0], dt[i1]], [s4_eps, s4_eps], '--r')
                             if sum(np.isfinite(snr4[:,isv,irx])) > 0:
-                                i0 = np.argwhere(np.isfinite(snr4_all[:,isv]))[0]
-                                i1 = np.argwhere(np.isfinite(snr4_all[:,isv]))[-1]
-                                ax31.plot([dt[i0], dt[i1]], [s4_eps, s4_eps], '--r')
                                 ax31.plot(dt, snr4[:,isv,irx], '.g')
                             ax31.set_ylabel('SNR$_4$ [dB]')
                             ax31.grid(axis='both')
                             ax31.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            
-                            svf = 'rxi{}_prni{}'.format(irx,isv)
+                            prefix = dt[0].strftime("%Y%m%d")
+                            svf = '{}_rxi{}_prni{}'.format(prefix, irx,isv)
                             ax1.set_title('E($\sigma_T$) = {}'.format(st_eps))
                             ax11.set_title('E(SNR$_4$) = {}'.format(s4_eps))
                             if savefig:
@@ -492,35 +520,36 @@ def process(fn, odir=None, cfg=None, log=None):
                                     subprocess.call('mkdir -p {}'.format(figfolder), shell=True, timeout=5)
                                 plt.savefig(figfolder+'{}.png'.format(svf), dpi=100)
                                 plt.close(fig)
-                    except:
-                        pass
-        except:
-            pass
-    #        break
-    #    break
+                    except Exception as e:
+                        print (e)
+        except Exception as e:
+            print (e)
+        if irxforce is not None:
+            break
     
     f.close()
     # Save to new hdf5 file
-    if log:
-        with open(logfn, 'a') as LOG:
-            LOG.write('Saving data to : \n {}'.format(ofn))
-        LOG.close()
-    else:
-        print ('Saving data to : \n {}'.format(ofn))
-    f = h5py.File(ofn, 'w')
-    gr = f.create_group('data')
-    gr.create_dataset('time', data = time, compression = 'gzip', compression_opts = 9)
-    gr.create_dataset('sigma_tec', data = sigma_tec, compression = 'gzip', compression_opts = 9)
-    gr.create_dataset('snr4', data = snr4, compression = 'gzip', compression_opts = 9)
-    gr.create_dataset('ipp', data = ipp, compression = 'gzip', compression_opts = 9)
-    gr.create_dataset('rxp', data = rxpall, compression = 'gzip', compression_opts = 9)
-    gr.create_dataset('scint_limits', data = scint_limits, compression = 'gzip', compression_opts = 9)
-    gr.create_dataset('rxstd', data = receiver_std, compression = 'gzip', compression_opts = 9)
-    gr.create_dataset('rxstdmedian', data = receiver_std_median, compression = 'gzip', compression_opts = 9)
-    gr.attrs[u'altitude_km'] = H
-    gr.attrs[u'hpf_fc'] = fc
-    gr.attrs[u'hpf_order'] = hpf_order
-    f.close()
+    if irxforce is None:
+        if log:
+            with open(logfn, 'a') as LOG:
+                LOG.write('Saving data to : \n {}'.format(ofn))
+            LOG.close()
+        else:
+            print ('Saving data to : \n {}'.format(ofn))
+        f = h5py.File(ofn, 'w')
+        gr = f.create_group('data')
+        gr.create_dataset('time', data = time, compression = 'gzip', compression_opts = 9)
+        gr.create_dataset('sigma_tec', data = sigma_tec, compression = 'gzip', compression_opts = 9)
+        gr.create_dataset('snr4', data = snr4, compression = 'gzip', compression_opts = 9)
+        gr.create_dataset('ipp', data = ipp, compression = 'gzip', compression_opts = 9)
+        gr.create_dataset('rxp', data = rxpall, compression = 'gzip', compression_opts = 9)
+        gr.create_dataset('scint_limits', data = scint_limits, compression = 'gzip', compression_opts = 9)
+        gr.create_dataset('rxstd', data = receiver_std, compression = 'gzip', compression_opts = 9)
+        gr.create_dataset('rxstdmedian', data = receiver_std_median, compression = 'gzip', compression_opts = 9)
+        gr.attrs[u'altitude_km'] = H
+        gr.attrs[u'hpf_fc'] = fc
+        gr.attrs[u'hpf_order'] = hpf_order
+        f.close()
     
 
 if __name__ == '__main__':
@@ -529,6 +558,7 @@ if __name__ == '__main__':
     p.add_argument('-o', '--odir', help = 'Output directory ', default=None)
     p.add_argument('--cfg', help = 'Path to the config (yaml) file', default = None)
     p.add_argument('--log', help = 'If you prefer to make a .log file?', action = 'store_true')
+    p.add_argument('--irx', help = 'Process one rx only', default=None)
     P = p.parse_args()
     
-    process(fn=P.infile, odir=P.odir, cfg=P.cfg, log=P.log)
+    process(fn=P.infile, odir=P.odir, cfg=P.cfg, log=P.log, irxforce=P.irx)

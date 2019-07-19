@@ -18,9 +18,8 @@ import h5py
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 from matplotlib import dates
-
-PLOT = 1
-saveroot = 'C:\\Users\\smrak\\Documents\\data\\detrending\\232\\plots_v0\nc2tec_v1\\'
+import warnings
+warnings.simplefilter('ignore', np.RankWarning)
 
 def plots(dt, stec, elv, tecd_v1, polynom_list, err_list, saveroot=None):
     global fnc
@@ -57,7 +56,7 @@ def plots(dt, stec, elv, tecd_v1, polynom_list, err_list, saveroot=None):
             ax01.semilogy(polynom_list[2:], err_list[2:], 'k')
             ax011.semilogy(polynom_list[3:], abs(np.diff(err_list))[2:], 'b', )
             ax011.semilogy(polynom_list[3:], abs(np.diff(err_list))[2:], '.b')
-    ax011.semilogy([polynom_list[1], polynom_list[-1]], [eps, eps], '--r', label='E={}'.format(eps))
+    ax011.semilogy([polynom_list[1], polynom_list[-1]], [eps, eps], '--r', label='E={}'.format(np.round(eps,1)))
     ax011.legend()
     ax01.set_xlabel('Polynomial order')
     ax01.set_ylabel('Error, $|\epsilon |^2$')
@@ -77,13 +76,72 @@ def plots(dt, stec, elv, tecd_v1, polynom_list, err_list, saveroot=None):
     if saveroot is not None:
         if not os.path.exists(saveroot):
             import subprocess
-            subprocess.call('mkdir "-p {}"'.format(saveroot), shell=True, timeout=2)
-        sfn = 'rxi{}_svi{}.png'.format(irx, isv)
+            subprocess.call('mkdir -p {}'.format(saveroot), shell=True, timeout=2)
+        prefix = times[0].strftime("%Y%m%d")
+        sfn = '{}_rxi{}_svi{}.png'.format(prefix, irx, isv)
         plt.savefig(saveroot + sfn, dpi=100)
         plt.close(fig)
+        
+
+def tecPerLOS(D, idel, maxgap=10, maxjump=1):
+    C1 = D['C1'].values
+    C1[~idel] = np.nan
+    C2 = D['P2'].values
+    C2[~idel] = np.nan
+    L1 = D['L1'].values
+    L1[~idel] = np.nan
+    L2 = D['L2'].values
+    L2[~idel] = np.nan
+    
+    stec = np.nan * np.ones(D.el.values.shape[0])
+    
+    if np.sum(np.isfinite(C1)) < (15 * (60/tsps)): 
+        # If shorter than 15 minutes, skip
+        return stec, []
+    
+    ixin, intervals = pyGnss.getIntervals(L1,L2,C1,C2, maxgap=maxgap, maxjump=maxjump)
+    
+    for ir, r in enumerate(intervals):
+        if r[-1] - r[0] < (15 / (60/tsps)):
+            intervals.pop(ir)
+        else:
+            stec[r[0]:r[-1]] = pyGnss.slantTEC(C1[r[0]:r[-1]], C2[r[0]:r[-1]], 
+                                          L1[r[0]:r[-1]], L2[r[0]:r[-1]])
+    if np.sum(np.isfinite(stec)) > 1:
+        stec_zero_bias = np.nanmin(stec)
+        stec -= stec_zero_bias - 5
+    
+    return stec, intervals
+
+def tecdPerLOS(stec, intervals, mask, eps=1, polynom_list=None, zero_mean=False):
+    tecd = np.nan * np.ones(stec.size)
+            
+    for ir, r in enumerate(intervals):
+        chunk = stec[r[0]+1 : r[1]-1]
+        idf = np.isfinite(chunk)
+        if np.sum(np.isfinite(chunk)) < (15 * (60/tsps)): 
+            continue
+        if np.sum(np.isnan(chunk)) > 0:
+            chunk = gu.cubicSplineFit(chunk, idf)
+        
+        res, err_list0, po  = gu.detrend(chunk, polynom_list=polynom_list, eps=eps, mask=mask[r[0]+1 : r[1]-1], polynomial_order=True)
+        polynom_orders.append([(r[1] -r[0]) / (60/tsps), po])
+        delta_eps.append(abs(np.diff(err_list0)[-1]))
+        if ir == 0 or 'err_list' not in locals():
+            err_list = err_list0
+        else:
+            err_list = np.vstack((err_list, err_list0))
+        res[~idf] = np.nan
+        if zero_mean:
+            if abs(np.nansum(res)) < 5:
+                tecd[r[0]+1 : r[1]-1] = res
+        else:
+            tecd[r[0]+1 : r[1]-1] = res
+    
+    return tecd, err_list
 
 if __name__ == '__main__':
-    global fnc
+    global fnc, tsps, polynom_orders, delta_eps
     p = ArgumentParser()
     p.add_argument('date')
     p.add_argument('rxlist', type = str, help = 'Rxlist as a .yaml file')
@@ -96,6 +154,7 @@ if __name__ == '__main__':
     p.add_argument('--stec', help = 'Save slant TEC?', action = 'store_true')
     p.add_argument('--use_satbias', help = 'Correct the stec for a satbias?', action = 'store_true')
     p.add_argument('--zeromean', help = 'Want to sheck each dtec sector is ~~zero mean?', action = 'store_true')
+    p.add_argument('--plot', help = 'Plot the processing steps?', action = 'store_true')
     P = p.parse_args()
     
     # GLOBAL VARIABLES
@@ -104,13 +163,14 @@ if __name__ == '__main__':
         NAVFOLDER = '/media/smrak/gnss/nav/'
         SBFOLDER = '/media/smrak/gnss/jplg/'
         SAVEFOLDER = '/media/smrak/gnss/hdf/'
+        FIGUREFOLDER = '/media/smrak/gnss/plots/'
     else:
         yamlcfg = yaml.load(open(P.cfg, 'r'), Loader=yaml.SafeLoader)
         OBSFOLDER = yamlcfg.get('obsfolder')
         NAVFOLDER = yamlcfg.get('navfolder')
         SBFOLDER = yamlcfg.get('sbfolder')
         SAVEFOLDER = yamlcfg.get('savefolder')
-    
+        FIGUREFOLDER = yamlcfg.get('figurefolder')
     date = parser.parse(P.date)
     year = date.year
     day = date.strftime('%j')
@@ -119,9 +179,11 @@ if __name__ == '__main__':
     tlim = P.tlim
     Ts = P.ts
     zero_mean = P.zeromean
-    eps = 1
-#    weights=[1, 4, 7, 10]
     
+    PLOT = P.plot
+    if PLOT:
+        if FIGUREFOLDER is None:
+            FIGUREFOLDER = os.path.join(SAVEFOLDER, 'diagnostic/')
     # Obs nav
     nc_root = os.path.join(OBSFOLDER, str(year))
     # Filter input files
@@ -137,6 +199,8 @@ if __name__ == '__main__':
     # Nav file
     nav_root = NAVFOLDER
     fnav = os.path.join(nav_root, 'brdc' + str(day) + '0.' + str(year)[2:] + 'n')
+    fsp3 = os.path.join(nav_root, 'igs' + str(day) + '0.' + str(year)[2:] + 'sp3')
+    
     # jplg file
     if P.use_satbias:
         jplg_root = SBFOLDER
@@ -184,10 +248,11 @@ if __name__ == '__main__':
     svl = 32 #gr.load(fnc[0]).sv.values.shape[0]
     rxl = fnc.shape[0]
     # Polynomial list
-    polynom_list = np.arange(0,16)
+    polynom_list = np.arange(0,20)
     # Stats
     # Polynomial orders list for stats
     polynom_orders = []
+    delta_eps = []
     # Output arrays
     if P.stec : slanttec = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     residuals = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
@@ -219,89 +284,53 @@ if __name__ == '__main__':
                     continue
                 
                 try:
-                    D = pyGnss.dataFromNC(fnc,fnav,sv=sv,tlim=tlim,el_mask=el_mask-10, satpos=True)#, ipp=True, ipp_alt = ipp_alt)
-                    idel = D['idel'].values
+                    el_mask_in = el_mask - 10 if (el_mask - 10) >= 8 else 8
+                    D = pyGnss.dataFromNC(fnc,fnav,sv=sv,fsp3=fsp3, tlim=tlim,el_mask=el_mask-10, satpos=True)#, ipp=True, ipp_alt = ipp_alt)
+                    # Remove inital recovery at time 00:00
+                    mask0 = np.ones(D.time.values.size, dtype=bool)
+                    mask0[:3] = False
+                    # Merge with the elevation mask
+                    idel = np.logical_and(D['idel'].values, mask0)
                     
                     dt = D.time.values
                     tsps = np.diff(dt.astype('datetime64[s]'))[0].astype(int)
+                    eps = 1 * np.sqrt(30/tsps)
                     elv = D.el.values.astype(np.float16)
-                    mask = (np.nan_to_num(elv) >= el_mask)
-                    
-                    if np.isfinite(D['C1'].values[idel]).shape[0] < (15 / (60/tsps)): 
-                        # If shorter than 15 minutes, skip
-                        continue
-                    
-                    C1 = D['C1'].values
-                    C1[~idel] = np.nan
-                    C2 = D['P2'].values
-                    C2[~idel] = np.nan
-                    L1 = D['L1'].values
-                    L1[~idel] = np.nan
-                    L2 = D['L2'].values
-                    L2[~idel] = np.nan
-                    try:
-                        S1 = D['S1'].values
-                        S1[~idel] = np.nan
-                    except:
-                        S1 = np.nan * np.copy(C1)
-                    
-                    # Intervals
-                    stec = np.nan * np.ones(dt.shape[0])
-                    ixin, intervals = pyGnss.getIntervals(L1,L2,C1,C2, maxgap=1)
-                    for r in intervals:
-                        if r[-1] - r[0] < 50:
-                            continue
-                        else:
-                            stec[r[0]:r[-1]] = pyGnss.slantTEC(C1[r[0]:r[-1]], C2[r[0]:r[-1]], 
-                                                          L1[r[0]:r[-1]], L2[r[0]:r[-1]])
-                    
-                    if np.sum(np.isfinite(stec)) < (15 / (60/tsps)): 
-                        # If shorter than 15 minutes, skip
-                        continue
-                    if P.use_satbias:
-                        stec -= satbias[sv]
-                    else:
-                        stec_zero_bias = np.nanmin(stec)
-                        stec -= stec_zero_bias - 1
-                    idf_stec = np.isfinite(stec)
-                    tec_ranges = gu.makeranges(stec, idf_stec, gap_length=10, zero_mean=False)
-                    tecd = np.nan * np.ones(stec.size, dtype=np.float16)
-                    for ir, r in enumerate(tec_ranges):
-                        chunk = stec[r[0] : r[1]]
-                        idf = np.isfinite(chunk)
-                        if np.sum(np.isnan(chunk)) > 0:
-                            chunk = gu.cubicSplineFit(chunk, idf)
-                        
-                        res, err_list0, po = gu.detrend(chunk, polynom_list=polynom_list, eps=eps, mask=mask[r[0]:r[1]], polynomial_order=True)
-                        polynom_orders.append(po)
-                        if ir == 0:
-                            err_list = err_list0
-                        else:
-                            err_list = np.vstack((err_list, err_list0))
-                        res[~idf] = np.nan
-                        
-                        if zero_mean:
-                            if abs(np.nansum(res)) < 5:
-                                tecd[r[0] : r[1]] = res
-                        else:
-                            tecd[r[0] : r[1]] = res    
-                    
-                    # Print the shit
-                    tecd[~mask] = np.nan
-                    stec[~mask] = np.nan
-                    elv[~mask]] = np.nan
                     ixmask = (np.nan_to_num(elv) >= el_mask)
+                    
+                    # Get STEC and intervals
+                    stec, intervals = tecPerLOS(D, idel, maxjump=1, maxgap=10)
+                    F = np.nan * np.copy(stec)
+                    F[np.isfinite(elv)] = pyGnss.getMappingFunction(elv[np.isfinite(elv)], 350)
+                    stec *= F
+                    if np.sum(np.isfinite(stec)) < (15 * (60/tsps)): 
+                        # If shorter than 15 minutes, skip
+                        continue
+                    # Compute differentail TEC
+                    tecd, err_list = tecdPerLOS(stec, intervals, ixmask, polynom_list=polynom_list, eps=eps)
+                    # Print the shit
+                    tecd[~ixmask] = np.nan
+                    stec[~ixmask] = np.nan
+                    elv[~ixmask] = np.nan
                     idt = np.isin(t, dt[ixmask])
                     idt_reverse = np.isin(dt[ixmask], t[idt])
                     
-                    if P.stec: slanttec[idt, isv, irx] = stec[ixmask][idt_reverse]
+                    # Store to output arrays
                     residuals[idt, isv, irx] = tecd[ixmask][idt_reverse]
-                    if Ts == 1: snr[idt, isv, irx] = S1[ixmask][idt_reverse]
                     el[idt, isv, irx] = D.el.values[ixmask][idt_reverse]
                     az[idt, isv, irx] = D.az.values[ixmask][idt_reverse]
+                    # Optionals
+                    if P.stec: slanttec[idt, isv, irx] = stec[ixmask][idt_reverse]
+                    if Ts == 1: 
+                        try:
+                            S1 = D['S1'].values
+                            S1[~idel] = np.nan
+                        except:
+                            S1 = np.nan * np.ones(dt.size)
+                        snr[idt, isv, irx] = S1[ixmask][idt_reverse]
                     
                     if PLOT:
-                        plots(dt, stec, elv, tecd, polynom_list, err_list, saveroot=saveroot)
+                        plots(dt, stec, elv, tecd, polynom_list, err_list, saveroot=FIGUREFOLDER)
                 except Exception as e:
                     if P.log:
                         LOG.write(str(e) + '\n')
@@ -351,7 +380,13 @@ if __name__ == '__main__':
     h5file.attrs[u'processed'] = timestamp.strftime('%Y-%m-%d')
     h5file.attrs[u'number of receivers'] = rxl
     h5file.attrs[u'el_mask'] = el_mask
-    
+    # Stats
+    po_length = np.array(polynom_orders)[:,0]
+    po = np.array(polynom_orders)[:,1]
+    h5file.create_dataset('po', data=po, compression='gzip', compression_opts=9)
+    h5file.create_dataset('po_length', data=po_length, compression='gzip', compression_opts=9)
+    h5file.create_dataset('delta_eps', data=np.array(delta_eps), compression='gzip', compression_opts=9)
+    # Close the HDF5
     h5file.close()
     if P.log:
         with open(logfn, 'a') as LOG:
