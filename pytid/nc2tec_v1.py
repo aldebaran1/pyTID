@@ -200,6 +200,13 @@ if __name__ == '__main__':
     nav_root = NAVFOLDER
     fnav = os.path.join(nav_root, 'brdc' + str(day) + '0.' + str(year)[2:] + 'n')
     fsp3 = os.path.join(nav_root, 'igs' + str(day) + '0.' + str(year)[2:] + 'sp3')
+    if not os.path.exists(fsp3):
+        import subprocess
+        dhome = os.path.expanduser("~")
+        dldir = os.path.join(dhome, 'pyGnss/utils/download_rnxn.py')
+        subprocess.call("python {} {} {} --type sp3".format(dldir, P.date, nav_root), shell=True, timeout=5)
+    # Break at the beginning 
+    assert os.path.exists(fsp3), "Cant find the sp3 file"
     
     # jplg file
     if P.use_satbias:
