@@ -173,7 +173,7 @@ if __name__ == '__main__':
         FIGUREFOLDER = yamlcfg.get('figurefolder')
     date = parser.parse(P.date)
     year = date.year
-    day = date.strftime('%j')
+    doy = date.strftime('%j')
     rxlist = os.path.expanduser(P.rxlist)
     el_mask = P.elmask
     tlim = P.tlim
@@ -191,15 +191,23 @@ if __name__ == '__main__':
     rxn = np.array(stream.get('rx'))
 
     rx_total = stream.get('total')
-    nc_folder = os.path.join(nc_root, str(day)) + '/'
+    # Obs files => Path to
+    if os.path.exists(os.path.join(nc_root, str(doy)) + '/'):
+        pathadd = str(doy) + '/'
+    else:
+        month = date.month if len(str(date.month)) == 2 else '0' + str(date.month)
+        day = date.day if len(str(date.day)) == 2 else '0' + str(date.day)
+        pathadd = month + day + '/'
+    nc_folder = os.path.join(nc_root, pathadd)
+    assert os.path.exists(nc_folder), "Folder with observation files do not exists."
     nc_list = np.array(sorted(glob(nc_folder + '*.nc')))
     nc_rx_name = np.array([os.path.split(r)[1][:4] for r in nc_list])
     idn = np.isin(nc_rx_name, rxn)
     fnc = nc_list[idn]
     # Nav file
     nav_root = NAVFOLDER
-    fnav = os.path.join(nav_root, 'brdc' + str(day) + '0.' + str(year)[2:] + 'n')
-    fsp3 = os.path.join(nav_root, 'igs' + str(day) + '0.' + str(year)[2:] + 'sp3')
+    fnav = os.path.join(nav_root, 'brdc' + str(doy) + '0.' + str(year)[2:] + 'n')
+    fsp3 = os.path.join(nav_root, 'igs' + str(doy) + '0.' + str(year)[2:] + 'sp3')
     if not os.path.exists(fsp3):
         import subprocess
         dhome = os.path.expanduser("~")
@@ -211,19 +219,19 @@ if __name__ == '__main__':
     # jplg file
     if P.use_satbias:
         jplg_root = SBFOLDER
-        fjplg = os.path.join(jplg_root, 'jplg' + str(day) + '0.' + str(year)[2:] + 'i')
+        fjplg = os.path.join(jplg_root, 'jplg' + str(doy) + '0.' + str(year)[2:] + 'i')
         satbias = pyGnss.getSatBias(fjplg)
     # Processing options
     satpos = True
     args = ['L1', 'L2']
     #Common time array
     if tlim is None:
-        t0 = datetime.strptime('{} {}'.format(year,int(day)),'%Y %j')
-        t1 = datetime.strptime('{} {}'.format(year,int(day) + 1),'%Y %j')
+        t0 = datetime.strptime('{} {}'.format(year,int(doy)),'%Y %j')
+        t1 = datetime.strptime('{} {}'.format(year,int(doy) + 1),'%Y %j')
     else:
         assert len(tlim) == 2
-        t0 = datetime.strptime('{} {}-{}'.format(year,int(day),tlim[0]),'%Y %j-%H:%M')
-        t1 = datetime.strptime('{} {}-{}'.format(year,int(day),tlim[1]),'%Y %j-%H:%M')
+        t0 = datetime.strptime('{} {}-{}'.format(year,int(doy),tlim[0]),'%Y %j-%H:%M')
+        t1 = datetime.strptime('{} {}-{}'.format(year,int(doy),tlim[1]),'%Y %j-%H:%M')
     t = np.arange(t0, t1, Ts, dtype='datetime64[s]') #datetime64[s]
     tlim = [t0, t1]
     tl = t.shape[0]
