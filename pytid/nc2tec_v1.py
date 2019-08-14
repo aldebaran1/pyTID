@@ -21,7 +21,7 @@ from matplotlib import dates
 import warnings
 warnings.simplefilter('ignore', np.RankWarning)
 
-def plots(dt, stec, elv, tecd_v1, polynom_list, err_list, saveroot=None):
+def plots(dt, stec, elv, tecd_v1, polynom_list, err_list=[], saveroot=None):
     global fnc
     times = np.array([t.astype('datetime64[s]').astype(datetime) for t in dt])
     fig = plt.figure(figsize=[7,8])
@@ -120,6 +120,7 @@ def tecdPerLOS(stec, intervals, mask, eps=1, polynom_list=None, zero_mean=False)
         chunk = stec[r[0]+1 : r[1]-1]
         idf = np.isfinite(chunk)
         if np.sum(np.isfinite(chunk)) < (15 * (60/tsps)): 
+            err_list = []
             continue
         if np.sum(np.isnan(chunk)) > 0:
             chunk = gu.cubicSplineFit(chunk, idf)
@@ -127,7 +128,7 @@ def tecdPerLOS(stec, intervals, mask, eps=1, polynom_list=None, zero_mean=False)
         res, err_list0, po  = gu.detrend(chunk, polynom_list=polynom_list, eps=eps, mask=mask[r[0]+1 : r[1]-1], polynomial_order=True)
         polynom_orders.append([(r[1] -r[0]) / (60/tsps), po])
         delta_eps.append(abs(np.diff(err_list0)[-1]))
-        if ir == 0 or 'err_list' not in locals():
+        if ir == 0 or len(err_list) == 0:
             err_list = err_list0
         else:
             err_list = np.vstack((err_list, err_list0))
@@ -195,8 +196,8 @@ if __name__ == '__main__':
     if os.path.exists(os.path.join(nc_root, str(doy)) + '/'):
         pathadd = str(doy) + '/'
     else:
-        month = date.month if len(str(date.month)) == 2 else '0' + str(date.month)
-        day = date.day if len(str(date.day)) == 2 else '0' + str(date.day)
+        month = str(date.month) if len(str(date.month)) == 2 else '0' + str(date.month)
+        day = str(date.day) if len(str(date.day)) == 2 else '0' + str(date.day)
         pathadd = month + day + '/'
     nc_folder = os.path.join(nc_root, pathadd)
     assert os.path.exists(nc_folder), "Folder with observation files do not exists."
