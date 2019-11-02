@@ -24,7 +24,6 @@ if __name__ == '__main__':
     p.add_argument('rxlist', type = str, help = 'Rxlist as a .yaml file')
     p.add_argument('--elmask', type = int, default = 30)
     p.add_argument('--tlim', default = None, help = "start, stop times example 06:00 08:00", nargs=2, type=str)
-#    p.add_argument('-i', '--altkm', type = int, help = 'Pierce points altitude in kilometers.', default=350)
     p.add_argument('-o', '--ofn', help = 'Output filename with or withou root folder.', default=None)
     p.add_argument('--ts', help = 'sampling rate', default = 30, type = int)
     p.add_argument('--cfg', help = 'Path to the config (yaml) file', default = None)
