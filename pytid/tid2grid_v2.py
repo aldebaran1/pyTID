@@ -36,7 +36,20 @@ def getImageIndex(x, y, xlim, ylim, xgrid, ygrid):
         idx = np.nan
     return idx, idy
 
-def makeImage(dtec, longitude, latitude, im):
+def makeImage(dtec, xgrid, ygrid,
+              longitude = None, latitude = None, 
+              azimuth = None, elevation = None, rxp = None, altkm = None,
+              im = np.nan):
+    lonlim = [np.min(xgrid), np.max(xgrid)]
+    latlim = [np.min(ygrid), np.max(ygrid)]
+    if azimuth is not None and elevation is not None and rxp is not None and altkm is not None:
+        r1 = (altkm * 1e3) / np.sin(np.radians(elevation))
+        h0 = rxp[:,2] #if rxp[2] >= 0 else 0
+        ipp_lla = aer2geodetic(az=azimuth, el=elevation, srange=r1, 
+                               lat0=rxp[:,0], lon0=rxp[:,1], h0=h0)
+        longitude = ipp_lla[1]
+        latitude = ipp_lla[0]
+    assert (longitude is not None) and (latitude is not None), "Lat/Lon coordinates invalid!"
     for isv in range(dtec.shape[0]):
             for irx in np.where(np.isfinite(dtec[isv]))[0]:
                 idx, idy = getImageIndex(x=longitude[isv,irx], y=latitude[isv,irx],
@@ -51,6 +64,7 @@ def makeImage(dtec, longitude, latitude, im):
                     # mean of both values
                     else:
                         im[idx,idy] = (im[idx,idy] + dtec[isv,irx]) / 2
+    
     return im
 
 def makeTheHDF(t,x,y,im,filename):
@@ -96,30 +110,33 @@ if __name__ == '__main__':
     images = []
     ###################################################
     f = h5py.File(fname, 'r')
-    time = f['obstimes'][:]
-    res = f['res'][:]
     if mode == 'aer':
         from pymap3d import aer2geodetic
-        r1 = (P.altkm*1e3) / np.sin(np.radians(f['el'][:]))
-            
-        ipp_lla = aer2geodetic(az=f['az'][:], el=f['el'][:], srange=r1, 
-                               lat0=f['rx_positions'][:,0], 
-                               lon0=f['rx_positions'][:,1], 
-                               h0=f['rx_positions'][:, 2])
-        lat = ipp_lla[0]
-        lon = ipp_lla[1]
-        
+
+        for i in range(f['obstimes'][:].shape[0]):
+            print ("{}/{}".format(i+1, f['obstimes'][:].shape[0]))
+            try:
+                imtemp = makeImage(dtec=f['res'][i], xgrid=xgrid, ygrid=ygrid,
+                                   latitude = None, 
+                                   longitude = None, 
+                                   azimuth = f['az'][i],
+                                   elevation = f['el'][i],
+                                   rxp = f['rx_positions'], altkm=P.altkm,
+                                   im=np.nan*im)
+                images.append(imtemp)
+            except Exception as e:
+                print (e)
     else:
-        lat = f['lat'][:]
-        lon = f['lon'][:]
-    
-    for i in range(time.shape[0]):
-        print ("{}/{}".format(i+1, time.shape[0]))
-        try:
-            imtemp = makeImage(dtec=res[i], latitude = lat[i], longitude = lon[i], im=np.nan*im)
-            images.append(imtemp)
-        except Exception as e:
-            print (e)
+        for i in range(f['obstimes'][:].shape[0]):
+            print ("{}/{}".format(i+1, f['obstimes'][:].shape[0]))
+            try:
+                imtemp = makeImage(dtec=f['res'][i], xgrid=xgrid, ygrid=ygrid,
+                                   latitude = f['lat'][i], 
+                                   longitude = f['lon'][i], 
+                                   im=np.nan*im)
+                images.append(imtemp)
+            except Exception as e:
+                print (e)
     
     if savefn is None:
         folder = os.path.split(fname)[0]
@@ -132,7 +149,10 @@ if __name__ == '__main__':
         rr = str(resolution).replace('.', '')
         addon = '{}_altkm_{}_res_{}.h5'.format(root, int(P.altkm), rr)
         savefn += addon
-    f = makeTheHDF(time,xgrid[:,0],ygrid[0,:],images,savefn)
+    if not os.path.exists(os.path.split(savefn)[0]):
+        import subprocess
+        subprocess.call('mkdir -p {}'.format(os.path.split(savefn)[0]), shell=True, timeout=2)
+    f = makeTheHDF(f['obstimes'][:], xgrid[:,0], ygrid[0,:], images, savefn)
     timestamp = datetime.now()
     f.attrs[u'converted'] = timestamp.strftime('%Y-%m-%d')
     f.attrs[u'lonlim'] = '{} - {}'.format(lonlim[0],lonlim[1])
