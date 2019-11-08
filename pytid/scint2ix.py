@@ -17,6 +17,12 @@ import matplotlib.dates as mdates
 from scipy.interpolate import CubicSpline
 from pymap3d import aer2geodetic
 from argparse import ArgumentParser
+import platform
+
+if platform.system() == 'Linux':
+    separator = '/'
+else:
+    separator = '\\'
 
 def _runningMedian(x, N):
     n2 = int(N/2)
@@ -226,12 +232,12 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
     if irxforce is not None:
         irxforce = int(irxforce)
     if odir is None:
-        odir = os.path.split(fn)[0] + '/'
+        odir = os.path.split(fn)[0] + separator
     if cfg is None:
         plot_ripple = 0
         plot_outlier = 0
         savefig = 1
-        figfolder = odir + '/plots/'
+        figfolder = os.path.join(odir, 'scint_plots' + separator)
         plot = 1
         
         fs = 1
@@ -247,8 +253,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
         savefig = stream.get('savefig')
         figfolder = stream.get('figfolder')
         if figfolder is None:
-            
-            figfolder = odir + '/plots/'
+            figfolder = os.path.join(odir, 'scint_plots' + separator)
         
         fs = stream.get('fs')
         fc = stream.get('fc')
@@ -256,7 +261,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
         H = stream.get('alt_km')
     # Output file
     if odir is None:
-        odir = os.path.split(fn)[0] + '/'
+        odir = os.path.split(fn)[0] + separator
     ofn = odir + 'ix_' + '_'.join(os.path.split(fn)[1].split('.')[:2]) + '_{}km.h5'.format(H)
     # Dealing with duplicate file names
     if os.path.exists(ofn):
@@ -288,19 +293,22 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
     ipp = np.nan * np.ones((dt.size, svx, rnx, 2)) # [time, SV, Rx, [lat, lon]]
     sigma_tec = np.nan * np.ones((dt.size, svx, rnx))
     snr4 = np.nan * np.ones((dt.size, svx, rnx))
+    rot = np.nan * np.ones((dt.size, svx, rnx))
+    roti = np.nan * np.ones((dt.size, svx, rnx))
+#    tec_hpf = np.nan * np.ones((dt.size, svx, rnx))
     # Bookkeeping
     scint_limits = np.nan * np.zeros((rnx,2))
     receiver_std = np.nan * np.zeros((rnx,2))
     receiver_std_median = np.nan * np.zeros((rnx,2))
     
     for irx in range(rnx):
-        
         if log:
             with open(logfn, 'a') as LOG:
                 LOG.write('Processing Rx/all #{}/{}\n'.format(irx+1, rnx))
             LOG.close()
         else:
             print ('Processing Rx/all #{}/{}'.format(irx+1, rnx))
+                   
         if plot:
             tec_hpf_all = np.nan * np.ones((dt.size, svx))
             snr_hpf_all = np.nan * np.ones((dt.size, svx))
@@ -342,7 +350,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                     continue
                 
                 tec_hpf_copy = np.nan * np.copy(res)
-                snr_hpf_copy = np.nan * np.copy(res)
+                rot_copy = np.nan * np.copy(res)
+                roti_copy = np.nan * np.copy(res)
                 sigma_tec_copy = np.nan * np.copy(res)
                 snr4_copy = np.nan * np.copy(snr)
                 tec_hpf_original = np.nan * np.copy(res)
@@ -376,6 +385,10 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                             sT_interval = scint.sigmaTEC(tec_hpf, N = 60)
                             sigma_tec_copy[r[0] : r[1]] = sT_interval
                             tec_hpf_copy[r[0] : r[1]] = tec_hpf
+                            tmp_diff = np.diff(chunk)
+                            tmp_diff[tec_mask[1:]] = np.nan
+                            rot_copy[r[0]+1 : r[1]] = tmp_diff
+                            roti_copy[r[0]+1 : r[1]] = scint.sigmaTEC(np.diff(chunk), N=60)
                         except Exception as e:
                             if log:
                                 with open(logfn, 'a') as LOG:
@@ -393,11 +406,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                                                                                              plot_ripple=plot_ripple, plot_outlier=plot_outlier)
                             snr_outliers[r[0] : r[1], isv] = snr_mask
                             snr4_interval = scint.sigmaTEC(snr_hpf, N = 60)
-#                            snr4_interval = scint.s4(Schunk, N = 60)
-    #                        plt.plot(snr4_interval, 'r')
-    #                        plt.show()
                             snr4_copy[r[0] : r[1]] = snr4_interval
-#                            snr_hpf_copy[r[0] : r[1]] = snr_hpf
                         except Exception as e:
                             if log:
                                 with open(logfn, 'a') as LOG:
@@ -408,6 +417,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                 # Save scintillation indices
                 sigma_tec[:, isv, irx] = sigma_tec_copy
                 snr4[:, isv, irx] = snr4_copy
+                rot[:, isv, irx] = rot_copy
+                roti[:, isv, irx] = roti_copy
                 if plot:
                     tec_hpf_all[:,isv] = tec_hpf_original
                     snr_hpf_all[:,isv] = snr_hpf_original
@@ -417,16 +428,17 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
             # 4.1 Define limits
             # sigma_tec: limit ------------------------------------------------------ #
             st_std = np.nanstd(sigma_tec[:, :, irx])
+            st_std_tec = np.nanstd(sigma_tec[:, :, irx])
             st_hat = np.nanmedian(sigma_tec[:, :, irx])
-            st_eps = 2 * st_hat # + st_std
+            st_eps = 2.5 * st_hat # + st_std
             # SNR4 limit
             s4_std = np.nanstd(snr4[:, :, irx])
             s4_hat = np.nanmedian(snr4[:, :, irx])
-            s4_eps = 2 * s4_hat # + st_std
+            s4_eps = 2.5 * s4_hat # + st_std
             # 4.2 Store the limits ----------------------------------------------- #
             scint_limits[irx, 0] = st_eps
             receiver_std[irx, 0] = st_std
-            receiver_std_median[irx, 0] = st_std
+            receiver_std_median[irx, 0] = st_std_tec
             # ----------------------------------------------------------------------- #
             scint_limits[irx, 1] = s4_eps
             receiver_std[irx, 1] = s4_std
@@ -443,14 +455,15 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                                                  X_eps=st_eps, extend=0, N_median=60, 
                                                  min_length=180)
                 snr4[:,isv,irx] = _scintillationMask(snr4[:,isv,irx], X_hat=s4_hat, X_eps=s4_eps,
-                                                 extend=180)
+                                                 extend=0)
                 #######################################################################
                 # Plot for refernce
                 if plot:
                     try:
-                        if np.nansum(np.isfinite(sigma_tec_all[:,isv])) > 1000:
-                            fig = plt.figure(figsize=[15,8])
-                            ax1 = fig.add_subplot(321)
+                        if np.nansum(np.isfinite(sigma_tec_all[:,isv])) > 1:
+                            print ("Plotting PRN:{}".format(isv+1))
+                            fig = plt.figure(figsize=[15,12])
+                            ax1 = fig.add_subplot(421)
                             ax12 = ax1.twinx()
                             if irxforce is None:
                                 ax1.plot(dt, f['res'][:,isv,irx], 'b', label='RXi {}; PRN {}'.format(irx, isv+1))
@@ -465,13 +478,13 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                             ax1.legend()
                             ax1.set_xticklabels([])
                             # Second
-                            ax2 = fig.add_subplot(323, sharex=ax1)
+                            ax2 = fig.add_subplot(423, sharex=ax1)
                             ax2.plot(dt, tec_hpf_all[:,isv], 'b')
                             ax2.plot(dt[tec_outliers[:,isv]], tec_hpf_all[:,isv][tec_outliers[:,isv]], 'xr')
                             ax2.set_ylabel('$\delta TEC_{0.1 Hz}$')
                             ax2.grid(axis='both')
                             # Third
-                            ax3 = fig.add_subplot(325, sharex=ax1)
+                            ax3 = fig.add_subplot(427, sharex=ax1)
                             ax3.plot(dt, sigma_tec_all[:,isv], '.b')
                             
                             i0 = np.argwhere(np.isfinite(sigma_tec_all[:,isv]))[0]
@@ -484,7 +497,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                             ax3.grid(axis='both')
                             ax3.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
                             ######################### SNR
-                            ax11 = fig.add_subplot(322, sharex=ax1)
+                            ax11 = fig.add_subplot(422, sharex=ax1)
                             if irxforce is None:
                                 ax11.plot(dt, f['snr'][:,isv,irx], 'b', label='RXi {}; PRN {}'.format(irx, isv+1))
                             else:
@@ -492,15 +505,14 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                             ax11.set_ylabel('SNR')
                             ax11.grid(axis='both')
                             ax11.legend()
-#                            ax11.set_xticklabels([])
                             # Second
-                            ax21 = fig.add_subplot(324, sharex=ax1)
+                            ax21 = fig.add_subplot(424, sharex=ax1)
                             ax21.plot(dt, snr_hpf_all[:,isv], 'b')
                             ax2.plot(dt[snr_outliers[:,isv]], tec_hpf_all[:,isv][snr_outliers[:,isv]], 'xr')
                             ax21.set_ylabel('$SNR4_{0.1 Hz}$')
                             ax21.grid(axis='both')
                             # Third
-                            ax31 = fig.add_subplot(326, sharex=ax1)
+                            ax31 = fig.add_subplot(426, sharex=ax1)
                             ax31.plot(dt, snr4_all[:,isv], '.b')
                             i0 = np.argwhere(np.isfinite(snr4_all[:,isv]))[0]
                             i1 = np.argwhere(np.isfinite(snr4_all[:,isv]))[-1]
@@ -514,12 +526,30 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                             svf = '{}_rxi{}_prni{}'.format(prefix, irx,isv)
                             ax1.set_title('E($\sigma_T$) = {}'.format(st_eps))
                             ax11.set_title('E(SNR$_4$) = {}'.format(s4_eps))
+                            
+                            ax41 = fig.add_subplot(428, sharex=ax1)
+                            ax41.plot(dt, roti[:,isv,irx], '.b')
+                            ax41.set_ylabel('ROTI [TECu]')
+                            ax41.grid(axis='both')
+                            ax41.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+                            
+                            ax42 = fig.add_subplot(425, sharex=ax1)
+                            ax42.plot(dt, rot[:,isv,irx], 'b')
+                            ax42.set_ylabel('ROT [TECu]')
+                            ax42.grid(axis='both')
+                            ax42.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+                            
                             if savefig:
                                 if not os.path.exists(figfolder):
                                     import subprocess
-                                    subprocess.call('mkdir -p {}'.format(figfolder), shell=True, timeout=5)
+                                    if platform.system() == 'Linux':
+                                        subprocess.call('mkdir -p {}'.format(figfolder), shell=True, timeout=5)
+                                    else:
+                                        subprocess.call('mkdir "{}"'.format(figfolder), shell=True, timeout=5)
                                 plt.savefig(figfolder+'{}.png'.format(svf), dpi=100)
                                 plt.close(fig)
+                        else:
+                            print ("Not enoughd data from PRN:{}".format(isv+1))
                     except Exception as e:
                         print (e)
         except Exception as e:
@@ -541,6 +571,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
         gr.create_dataset('time', data = time, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('sigma_tec', data = sigma_tec, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('snr4', data = snr4, compression = 'gzip', compression_opts = 9)
+        gr.create_dataset('roti', data = roti, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('ipp', data = ipp, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('rxp', data = rxpall, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('scint_limits', data = scint_limits, compression = 'gzip', compression_opts = 9)
