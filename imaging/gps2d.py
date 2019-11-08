@@ -239,6 +239,7 @@ if __name__ == '__main__':
     p.add_argument('--t0', type=str, help='Processing start time yyyy-mm-dd', default=None)
     p.add_argument('--t1', type=str, help='Processing start time yyyy-mm-dd', default=None)
     p.add_argument('--cfg', type=str)
+    p.add_argument('--skip', type=int, default=None)
     p.add_argument('--odir', type=str, help='Output directory', default=None)
     p.add_argument('-m', '--cfgmap', type=str, help='Yaml configuration file with the map settings',
                    default='map/example_map.yaml')
@@ -254,7 +255,7 @@ if __name__ == '__main__':
         stream = yaml.load(open(os.path.join(os.getcwd(), P.cfg), 'r'), Loader=yaml.SafeLoader)
 
     fillpixel_iter = stream.get('fillpixel_iter')
-    skip = stream.get('skip')
+    skip = P.skip if (P.skip is not None) else stream.get('skip')
     projection = stream.get('projection')
     latlim = stream.get('latlim')
     lonlim = stream.get('lonlim')
@@ -317,7 +318,8 @@ if __name__ == '__main__':
     if P.t0 is not None and P.t1 is not None:
         t0 = parser.parse(P.t0)
         t1 = parser.parse(P.t1)
-        timelim = [t0, t1]
+        timelim = [datetime(datetimetime[0].year, datetimetime[0].month, datetimetime[0].day, t0.hour, t0.minute, t0.second),
+                   datetime(datetimetime[0].year, datetimetime[0].month, datetimetime[0].day, t1.hour, t1.minute, t1.second)]
         idt = (datetimetime >= timelim[0]) & (datetimetime <= timelim[1])
     else:
         idt = ones(datetimetime.size, dtype=bool)
@@ -325,7 +327,6 @@ if __name__ == '__main__':
     dt = datetimetime[idt]
     iterate1 = arange(where(idt==1)[0][0], where(idt==1)[0][-1]+1, skip)
     iterate2 = arange(0, dt.size, skip)
-
     with concurrent.futures.ThreadPoolExecutor(max_workers=50) as ex:
         im = [ex.submit(makeImage, im[i], fillpixel_iter) for i in iterate1]
 
@@ -348,7 +349,7 @@ if __name__ == '__main__':
         # Plot image
         try:
             if image_type == 'contourf':
-                levels = linspace(clim[0],clim[1], 40)
+                levels = linspace(clim[0], clim[1], 40)
                 image[image<=clim[0]] = levels[0]
                 image[image>=clim[1]] = levels[-1]
                 imax = plt.contourf(xgrid,ygrid,image.T, levels=levels,cmap=cmap, transform=ccrs.PlateCarree())
