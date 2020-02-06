@@ -238,7 +238,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
         plot_outlier = 0
         savefig = 1
         figfolder = os.path.join(odir, 'scint_plots' + separator)
-        plot = 1
+        plot = 0
         
         fs = 1
         fc = 0.1
