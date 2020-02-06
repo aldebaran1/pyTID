@@ -10,6 +10,7 @@ import yaml
 import h5py
 import numpy as np
 from datetime import datetime
+from pyGnss import pyGnss
 from pyGnss import gnssUtils as gu
 from pyGnss import scintillation as scint
 import matplotlib.pyplot as plt
@@ -335,6 +336,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                     
                     # Compute location of the IPP
                     lat, lon = _toLLT(rxp, az=az, el=el, H=H)
+                    # Get Mapping Function
+                    F = pyGnss.getMappingFunction(el, h = 350)
                     # Stack into the output array
                     ipp[:, isv, irx, 0] = lat
                     ipp[:, isv, irx, 1] = lon
@@ -415,8 +418,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                             else:
                                 print (e)
                 # Save scintillation indices
-                sigma_tec[:, isv, irx] = sigma_tec_copy
-                snr4[:, isv, irx] = snr4_copy
+                sigma_tec[:, isv, irx] = (sigma_tec_copy * (F**0.9))
+                snr4[:, isv, irx] = (snr4_copy * (F**0.9))
                 rot[:, isv, irx] = rot_copy
                 roti[:, isv, irx] = roti_copy
                 if plot:
