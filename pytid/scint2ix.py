@@ -580,6 +580,12 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
         gr.create_dataset('scint_limits', data = scint_limits, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('rxstd', data = receiver_std, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('rxstdmedian', data = receiver_std_median, compression = 'gzip', compression_opts = 9)
+        rxn = f['rx_name'][:]
+        asciiListRX = [n.encode("ascii", "ignore") for n in rxn]
+        gr.create_dataset('rx_name', (len(asciiListRX),1),'S10', asciiListRX)
+        rxm = f['rx_model'][:]
+        asciiListRXM = [n.encode("ascii", "ignore") for n in rxm]
+        gr.create_dataset('rx_model', (len(asciiListRXM),1),'S25', asciiListRXM)
         gr.attrs[u'altitude_km'] = H
         gr.attrs[u'hpf_fc'] = fc
         gr.attrs[u'hpf_order'] = hpf_order
