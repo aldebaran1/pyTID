@@ -456,9 +456,9 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                     print ('Processing scintillation sv/all {}/{}'.format(isv+1, svx))
                 sigma_tec[:,isv,irx] = _scintillationMask(sigma_tec[:,isv,irx], X_hat=st_hat, 
                                                  X_eps=st_eps, extend=0, N_median=60, 
-                                                 min_length=180)
+                                                 min_length=120)
                 snr4[:,isv,irx] = _scintillationMask(snr4[:,isv,irx], X_hat=s4_hat, X_eps=s4_eps,
-                                                 extend=0)
+                                                 extend=0, min_length=120)
                 #######################################################################
                 # Plot for refernce
                 if plot:
