@@ -294,6 +294,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
     ipp = np.nan * np.ones((dt.size, svx, rnx, 2)) # [time, SV, Rx, [lat, lon]]
     sigma_tec = np.nan * np.ones((dt.size, svx, rnx))
     snr4 = np.nan * np.ones((dt.size, svx, rnx))
+    s4 = np.nan * np.ones((dt.size, svx, rnx))
     rot = np.nan * np.ones((dt.size, svx, rnx))
     roti = np.nan * np.ones((dt.size, svx, rnx))
 #    tec_hpf = np.nan * np.ones((dt.size, svx, rnx))
@@ -417,6 +418,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                                 LOG.close()
                             else:
                                 print (e)
+                # S4
+                s4[:, isv, irx] = scint.AmplitudeScintillationIndex(10**(snr/10), 60) * (F**0.9)
                 # Save scintillation indices
                 sigma_tec[:, isv, irx] = (sigma_tec_copy * (F**0.9))
                 snr4[:, isv, irx] = (snr4_copy * (F**0.9))
