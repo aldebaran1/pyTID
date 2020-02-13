@@ -239,7 +239,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
         plot_outlier = 0
         savefig = 1
         figfolder = os.path.join(odir, 'scint_plots' + separator)
-        plot = 0
+        plot = 1
         
         fs = 1
         fc = 0.1
@@ -295,8 +295,9 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
     sigma_tec = np.nan * np.ones((dt.size, svx, rnx))
     snr4 = np.nan * np.ones((dt.size, svx, rnx))
     s4 = np.nan * np.ones((dt.size, svx, rnx))
-    rot = np.nan * np.ones((dt.size, svx, rnx))
     roti = np.nan * np.ones((dt.size, svx, rnx))
+    if plot:
+        rot = np.nan * np.ones((dt.size, svx, rnx))
 #    tec_hpf = np.nan * np.ones((dt.size, svx, rnx))
     # Bookkeeping
     scint_limits = np.nan * np.zeros((rnx,2))
@@ -389,8 +390,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                             tec_hpf, tec_hpf_original[r[0]:r[1]], tec_mask = _partialProcess(dt, r, chunk, fs=fs, fc=fc, hpf_order=hpf_order, 
                                                                                              plot_ripple=plot_ripple, plot_outlier=plot_outlier)
                             tec_outliers[r[0] : r[1], isv] = tec_mask
-                            sT_interval = scint.sigmaTEC(tec_hpf, N = 60)
-                            sigma_tec_copy[r[0] : r[1]] = sT_interval
+                            sigma_tec_copy[r[0] : r[1]] = scint.sigmaTEC(tec_hpf, N = 60)
+                            #
                             tec_hpf_copy[r[0] : r[1]] = tec_hpf
                             tmp_diff = np.diff(chunk)
                             tmp_diff[tec_mask[1:]] = np.nan
@@ -408,12 +409,11 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                         # Remove to short ranges if accidentaly do occur
                         if np.diff(r) < 60: continue
                         try:
-                            Schunk = snr[r[0] : r[1]]
+                            Schunk = snr[r[0] : r[1]].astype(np.float64)
                             snr_hpf, snr_hpf_original[r[0]:r[1]], snr_mask = _partialProcess(dt, r, Schunk, fs=fs, fc=fc, hpf_order=hpf_order,
                                                                                              plot_ripple=plot_ripple, plot_outlier=plot_outlier)
                             snr_outliers[r[0] : r[1], isv] = snr_mask
-                            snr4_interval = scint.sigmaTEC(snr_hpf, N = 60)
-                            snr4_copy[r[0] : r[1]] = snr4_interval
+                            snr4_copy[r[0] : r[1]] = scint.sigmaTEC(snr_hpf, N = 60)
                             s4_copy[r[0] : r[1]] = scint.AmplitudeScintillationIndex(10**(Schunk/10), 60)
                         except Exception as e:
                             if log:
@@ -426,9 +426,9 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                 sigma_tec[:, isv, irx] = sigma_tec_copy
                 snr4[:, isv, irx] = (snr4_copy * (F**0.9))
                 s4[:, isv, irx] = (s4_copy * (F**0.9))
-                rot[:, isv, irx] = rot_copy
                 roti[:, isv, irx] = roti_copy
                 if plot:
+                    rot[:, isv, irx] = rot_copy
                     tec_hpf_all[:,isv] = tec_hpf_original
                     snr_hpf_all[:,isv] = snr_hpf_original
                     sigma_tec_all[:,isv] = sigma_tec_copy
@@ -528,6 +528,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                             ax31.plot([dt[i0], dt[i1]], [s4_eps, s4_eps], '--r')
                             if sum(np.isfinite(snr4[:,isv,irx])) > 0:
                                 ax31.plot(dt, snr4[:,isv,irx], '.g')
+                            ax31.plot(dt, s4[:,isv,irx], 'k', lw=0.5)
                             ax31.set_ylabel('SNR$_4$ [dB]')
                             ax31.grid(axis='both')
                             ax31.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
