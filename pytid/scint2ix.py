@@ -10,6 +10,7 @@ import yaml
 import h5py
 import numpy as np
 from datetime import datetime
+from pyGnss import pyGnss
 from pyGnss import gnssUtils as gu
 from pyGnss import scintillation as scint
 import matplotlib.pyplot as plt
@@ -238,7 +239,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
         plot_outlier = 0
         savefig = 1
         figfolder = os.path.join(odir, 'scint_plots' + separator)
-        plot = 1
+        plot = 0
         
         fs = 1
         fc = 0.1
@@ -293,6 +294,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
     ipp = np.nan * np.ones((dt.size, svx, rnx, 2)) # [time, SV, Rx, [lat, lon]]
     sigma_tec = np.nan * np.ones((dt.size, svx, rnx))
     snr4 = np.nan * np.ones((dt.size, svx, rnx))
+    s4 = np.nan * np.ones((dt.size, svx, rnx))
     rot = np.nan * np.ones((dt.size, svx, rnx))
     roti = np.nan * np.ones((dt.size, svx, rnx))
 #    tec_hpf = np.nan * np.ones((dt.size, svx, rnx))
@@ -302,6 +304,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
     receiver_std_median = np.nan * np.zeros((rnx,2))
     
     for irx in range(rnx):
+        if irx >= 1:
+            break
         if log:
             with open(logfn, 'a') as LOG:
                 LOG.write('Processing Rx/all #{}/{}\n'.format(irx+1, rnx))
@@ -335,6 +339,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                     
                     # Compute location of the IPP
                     lat, lon = _toLLT(rxp, az=az, el=el, H=H)
+                    # Get Mapping Function
+                    F = pyGnss.getMappingFunction(el, h = 350)
                     # Stack into the output array
                     ipp[:, isv, irx, 0] = lat
                     ipp[:, isv, irx, 1] = lon
@@ -354,6 +360,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                 roti_copy = np.nan * np.copy(res)
                 sigma_tec_copy = np.nan * np.copy(res)
                 snr4_copy = np.nan * np.copy(snr)
+                s4_copy = np.nan * np.copy(snr)
                 tec_hpf_original = np.nan * np.copy(res)
                 snr_hpf_original = np.nan * np.copy(res)
                 # 0.0 To ranges: Multipe visits of a satellite per day. 
@@ -407,6 +414,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                             snr_outliers[r[0] : r[1], isv] = snr_mask
                             snr4_interval = scint.sigmaTEC(snr_hpf, N = 60)
                             snr4_copy[r[0] : r[1]] = snr4_interval
+                            s4_copy[r[0] : r[1]] = scint.AmplitudeScintillationIndex(10**(Schunk/10), 60)
                         except Exception as e:
                             if log:
                                 with open(logfn, 'a') as LOG:
@@ -416,7 +424,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                                 print (e)
                 # Save scintillation indices
                 sigma_tec[:, isv, irx] = sigma_tec_copy
-                snr4[:, isv, irx] = snr4_copy
+                snr4[:, isv, irx] = (snr4_copy * (F**0.9))
+                s4[:, isv, irx] = (s4_copy * (F**0.9))
                 rot[:, isv, irx] = rot_copy
                 roti[:, isv, irx] = roti_copy
                 if plot:
@@ -453,9 +462,9 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                     print ('Processing scintillation sv/all {}/{}'.format(isv+1, svx))
                 sigma_tec[:,isv,irx] = _scintillationMask(sigma_tec[:,isv,irx], X_hat=st_hat, 
                                                  X_eps=st_eps, extend=0, N_median=60, 
-                                                 min_length=180)
+                                                 min_length=120)
                 snr4[:,isv,irx] = _scintillationMask(snr4[:,isv,irx], X_hat=s4_hat, X_eps=s4_eps,
-                                                 extend=0)
+                                                 extend=0, min_length=120)
                 #######################################################################
                 # Plot for refernce
                 if plot:
@@ -556,7 +565,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
             print (e)
         if irxforce is not None:
             break
-    
+    rxn = f['rx_name'][:]
+    rxm = f['rx_model'][:]
     f.close()
     # Save to new hdf5 file
     if irxforce is None:
@@ -566,11 +576,15 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
             LOG.close()
         else:
             print ('Saving data to : \n {}'.format(ofn))
+        
         f = h5py.File(ofn, 'w')
         gr = f.create_group('data')
+        gr.create_dataset('rx_name', data = rxn, dtype='S10')
+        gr.create_dataset('rx_model', data = rxm, dtype='S25')
         gr.create_dataset('time', data = time, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('sigma_tec', data = sigma_tec, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('snr4', data = snr4, compression = 'gzip', compression_opts = 9)
+        gr.create_dataset('s4', data = s4, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('roti', data = roti, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('ipp', data = ipp, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('rxp', data = rxpall, compression = 'gzip', compression_opts = 9)
@@ -581,6 +595,12 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
         gr.attrs[u'hpf_fc'] = fc
         gr.attrs[u'hpf_order'] = hpf_order
         f.close()
+        if log:
+            with open(logfn, 'a') as LOG:
+                LOG.write('Successfully saved!')
+            LOG.close()
+        else:
+            print ('Successfully saved!')
     
 
 if __name__ == '__main__':

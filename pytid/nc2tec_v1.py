@@ -19,7 +19,13 @@ from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 from matplotlib import dates
 import warnings
+import platform
 warnings.simplefilter('ignore', np.RankWarning)
+
+if platform.system() == 'Linux':
+    separator = '/'
+else:
+    separator = '\\'
 
 def plots(dt, stec, elv, tecd_v1, polynom_list, err_list=[], saveroot=None):
     global fnc
@@ -175,6 +181,7 @@ if __name__ == '__main__':
     date = parser.parse(P.date)
     year = date.year
     doy = date.strftime('%j')
+    mmdd = date.strftime('%m%d')
     rxlist = os.path.expanduser(P.rxlist)
     el_mask = P.elmask
     tlim = P.tlim
@@ -184,7 +191,7 @@ if __name__ == '__main__':
     PLOT = P.plot
     if PLOT:
         if FIGUREFOLDER is None:
-            FIGUREFOLDER = os.path.join(SAVEFOLDER, 'diagnostic/')
+            FIGUREFOLDER = os.path.join(SAVEFOLDER, '{}{}diagnostic{}'.format(mmdd,separator,separator))
     # Obs nav
     nc_root = os.path.join(OBSFOLDER, str(year))
     # Filter input files
@@ -193,12 +200,12 @@ if __name__ == '__main__':
 
     rx_total = stream.get('total')
     # Obs files => Path to
-    if os.path.exists(os.path.join(nc_root, str(doy)) + '/'):
-        pathadd = str(doy) + '/'
+    if os.path.exists(os.path.join(nc_root, str(doy)) + separator):
+        pathadd = str(doy) + separator
     else:
         month = str(date.month) if len(str(date.month)) == 2 else '0' + str(date.month)
         day = str(date.day) if len(str(date.day)) == 2 else '0' + str(date.day)
-        pathadd = month + day + '/'
+        pathadd = month + day + separator
     nc_folder = os.path.join(nc_root, pathadd)
     assert os.path.exists(nc_folder), "Folder with observation files do not exists."
     nc_list = np.array(sorted(glob(nc_folder + '*.nc')))
@@ -276,8 +283,9 @@ if __name__ == '__main__':
     el = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     az = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     rxpos = np.nan * np.zeros((rxl, 3), dtype=np.float16)
+    rxname = np.zeros(rxl, dtype='<U5')
+    rxmodel = np.zeros(rxl, dtype='<U25')
     for irx, fnc in enumerate(fnc):
-        
         # New Array
         TEC = np.nan * np.zeros(t.shape[0], dtype=np.float16)
         TECD = np.nan * np.zeros(t.shape[0], dtype=np.float16)
@@ -285,7 +293,12 @@ if __name__ == '__main__':
             svlist = gr.load(fnc).sv.values
             navdata = gr.load(fnav)
             navdatatime = navdata.time.values
+            try:
+                rxmodel[irx] = gr.load(fnc).rxmodel
+            except:
+                pass
             rxpos[irx] = gr.load(fnc).position_geodetic
+            rxname[irx] = gr.load(fnc).filename[:4]
             rxn[irx] = nc_rx_name[irx]
             if P.log:
                 with open(logfn, 'a') as LOG:
@@ -294,12 +307,11 @@ if __name__ == '__main__':
             else:
                 print ('{}/{}'.format(irx+1, rxl))
             for isv, sv in enumerate(svlist):
-                if isv > 32: 
-                    continue
-                if not 'G' in sv:
-                    continue
-                
                 try:
+                    if isv > 32: 
+                        continue
+                    if not 'G' in sv:
+                        continue
                     el_mask_in = el_mask - 10 if (el_mask - 10) >= 8 else 8
                     D = pyGnss.dataFromNC(fnc,fnav,sv=sv,fsp3=fsp3, tlim=tlim,el_mask=el_mask-10, satpos=True)#, ipp=True, ipp_alt = ipp_alt)
                     # Remove inital recovery at time 00:00
@@ -348,17 +360,22 @@ if __name__ == '__main__':
                     if PLOT:
                         plots(dt, stec, elv, tecd, polynom_list, err_list, saveroot=FIGUREFOLDER)
                 except Exception as e:
-                    if P.log:
-                        LOG.write(str(e) + '\n')
-                    else:
-                        print (e)
+#                    print ("Skipped: Rx: {}, SV:{}".format(irx, isv))
+                    print (e)
+#                    if P.log:
+#                        LOG.write(str(e) + '\n')
+                    
+#                        pass
+#                    else:
+#                        print (e)
         except Exception as e:
-            if P.log:
-                with open(logfn, 'a') as LOG:
-                    LOG.write(str(e) + '\n')
-                LOG.close()
-            else:
-                print (e)
+            print (e)
+#            if P.log:
+#                with open(logfn, 'a') as LOG:
+#                    LOG.write(str(e) + '\n')
+#                LOG.close()
+#            else:
+#                print (e)
     th5 = gu.datetime2posix(t.astype(datetime))
     
     # Dealing with duplicate file names
@@ -391,7 +408,10 @@ if __name__ == '__main__':
     h5file.create_dataset('az', data=az, compression='gzip', compression_opts=9)
     h5file.create_dataset('el', data=el, compression='gzip', compression_opts=9)
     h5file.create_dataset('rx_positions', data=rxpos, compression='gzip', compression_opts=9)
-    
+    asciiListN = [n.encode("ascii", "ignore") for n in rxname]
+    h5file.create_dataset('rx_name', (len(asciiListN),1),'S10', asciiListN)
+    asciiListM = [n.encode("ascii", "ignore") for n in rxmodel]
+    h5file.create_dataset('rx_model', (len(asciiListM),1),'S25', asciiListM)
     timestamp = datetime.now()
     h5file.attrs[u'processed'] = timestamp.strftime('%Y-%m-%d')
     h5file.attrs[u'number of receivers'] = rxl
