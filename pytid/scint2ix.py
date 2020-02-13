@@ -239,7 +239,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
         plot_outlier = 0
         savefig = 1
         figfolder = os.path.join(odir, 'scint_plots' + separator)
-        plot = 1
+        plot = 0
         
         fs = 1
         fc = 0.1
@@ -305,8 +305,6 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
     receiver_std_median = np.nan * np.zeros((rnx,2))
     
     for irx in range(rnx):
-        if irx >= 1:
-            break
         if log:
             with open(logfn, 'a') as LOG:
                 LOG.write('Processing Rx/all #{}/{}\n'.format(irx+1, rnx))
@@ -391,7 +389,6 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                                                                                              plot_ripple=plot_ripple, plot_outlier=plot_outlier)
                             tec_outliers[r[0] : r[1], isv] = tec_mask
                             sigma_tec_copy[r[0] : r[1]] = scint.sigmaTEC(tec_hpf, N = 60)
-                            #
                             tec_hpf_copy[r[0] : r[1]] = tec_hpf
                             tmp_diff = np.diff(chunk)
                             tmp_diff[tec_mask[1:]] = np.nan
