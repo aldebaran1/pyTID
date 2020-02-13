@@ -304,6 +304,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
     receiver_std_median = np.nan * np.zeros((rnx,2))
     
     for irx in range(rnx):
+        if irx >= 1:
+            break
         if log:
             with open(logfn, 'a') as LOG:
                 LOG.write('Processing Rx/all #{}/{}\n'.format(irx+1, rnx))
@@ -358,6 +360,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                 roti_copy = np.nan * np.copy(res)
                 sigma_tec_copy = np.nan * np.copy(res)
                 snr4_copy = np.nan * np.copy(snr)
+                s4_copy = np.nan * np.copy(snr)
                 tec_hpf_original = np.nan * np.copy(res)
                 snr_hpf_original = np.nan * np.copy(res)
                 # 0.0 To ranges: Multipe visits of a satellite per day. 
@@ -411,6 +414,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                             snr_outliers[r[0] : r[1], isv] = snr_mask
                             snr4_interval = scint.sigmaTEC(snr_hpf, N = 60)
                             snr4_copy[r[0] : r[1]] = snr4_interval
+                            s4_copy[r[0] : r[1]] = scint.AmplitudeScintillationIndex(10**(Schunk/10), 60)
                         except Exception as e:
                             if log:
                                 with open(logfn, 'a') as LOG:
@@ -418,11 +422,10 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                                 LOG.close()
                             else:
                                 print (e)
-                # S4
-                s4[:, isv, irx] = scint.AmplitudeScintillationIndex(10**(snr/10), 60) * (F**0.9)
                 # Save scintillation indices
                 sigma_tec[:, isv, irx] = sigma_tec_copy
                 snr4[:, isv, irx] = (snr4_copy * (F**0.9))
+                s4[:, isv, irx] = (s4_copy * (F**0.9))
                 rot[:, isv, irx] = rot_copy
                 roti[:, isv, irx] = roti_copy
                 if plot:
@@ -562,7 +565,8 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
             print (e)
         if irxforce is not None:
             break
-    
+    rxn = f['rx_name'][:]
+    rxm = f['rx_model'][:]
     f.close()
     # Save to new hdf5 file
     if irxforce is None:
@@ -572,23 +576,31 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
             LOG.close()
         else:
             print ('Saving data to : \n {}'.format(ofn))
+        
         f = h5py.File(ofn, 'w')
         gr = f.create_group('data')
+        gr.create_dataset('rx_name', data = rxn, dtype='S10')
+        gr.create_dataset('rx_model', data = rxm, dtype='S25')
         gr.create_dataset('time', data = time, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('sigma_tec', data = sigma_tec, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('snr4', data = snr4, compression = 'gzip', compression_opts = 9)
+        gr.create_dataset('s4', data = s4, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('roti', data = roti, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('ipp', data = ipp, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('rxp', data = rxpall, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('scint_limits', data = scint_limits, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('rxstd', data = receiver_std, compression = 'gzip', compression_opts = 9)
         gr.create_dataset('rxstdmedian', data = receiver_std_median, compression = 'gzip', compression_opts = 9)
-        gr.create_dataset('rx_name', data=f['rx_name'][:], dtype='S10')
-        gr.create_dataset('rx_model', data=f['rx_model'][:], dtype='S25')
         gr.attrs[u'altitude_km'] = H
         gr.attrs[u'hpf_fc'] = fc
         gr.attrs[u'hpf_order'] = hpf_order
         f.close()
+        if log:
+            with open(logfn, 'a') as LOG:
+                LOG.write('Successfully saved!')
+            LOG.close()
+        else:
+            print ('Successfully saved!')
     
 
 if __name__ == '__main__':

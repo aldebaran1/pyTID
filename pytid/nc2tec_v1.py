@@ -297,6 +297,7 @@ if __name__ == '__main__':
                 rxmodel[irx] = gr.load(fnc).rxmodel
             except:
                 pass
+            rxpos[irx] = gr.load(fnc).position_geodetic
             rxname[irx] = gr.load(fnc).filename[:4]
             rxn[irx] = nc_rx_name[irx]
             if P.log:
