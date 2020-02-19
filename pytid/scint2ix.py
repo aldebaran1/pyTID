@@ -103,13 +103,13 @@ def _mkrngs(y0, idf, gap_length=10, lim=0.05, min_length=None, max_length=None,
 def _scintillationMask(X, X_hat, X_eps, N_median=60, min_length=60, extend=0):
     # Empty output arrays
     events = np.array([])
-
+    Y = np.copy(X)
     # Detect the events
     # SIGMA_TEC
     # Reject suspecious data : np.nanmedian(sT) / st_hat < 1.5
     # median value of individual link has to be reasonably close to median 
     # of the receiver
-    if np.nanmedian(X) / X_hat < 2:
+    if np.nanmedian(X) / X_hat < 3:
         X_med = _runningMedian(X, N_median)
         idx = (X_med > X_eps)
         idquet = np.ones(X.size, dtype = bool)
@@ -130,8 +130,8 @@ def _scintillationMask(X, X_hat, X_eps, N_median=60, min_length=60, extend=0):
                     events = events[event_mask]
                     for r in events:
                         idquet[r[0]:r[1]] = False
-        X[idquet] = np.nan
-    return X
+        Y[idquet] = np.nan
+    return Y
             
 def _partialProcess(dt,r, x, fs=1, fc=0.1, hpf_order=6,
                     plot_ripple = False,
