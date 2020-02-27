@@ -100,7 +100,10 @@ def _mkrngs(y0, idf, gap_length=10, lim=0.05, min_length=None, max_length=None,
         pass
     return ranges
 
-def _scintillationMask(X, X_hat, X_eps, N_median=60, min_length=60, extend=0):
+def _scintillationMask(X, X_hat, X_eps, N_median=60, min_length=60, 
+                       gap_close=60*5, extend=0, 
+                       diagnostic=False):
+    #
     # Empty output arrays
     events = np.array([])
     Y = np.copy(X)
@@ -109,29 +112,40 @@ def _scintillationMask(X, X_hat, X_eps, N_median=60, min_length=60, extend=0):
     # Reject suspecious data : np.nanmedian(sT) / st_hat < 1.5
     # median value of individual link has to be reasonably close to median 
     # of the receiver
-    if np.nanmedian(X) / X_hat < 3:
+    if np.nanmedian(X) / X_hat < 2:
         X_med = _runningMedian(X, N_median)
-        idx = (X_med > X_eps)
+        idx = (np.nan_to_num(X_med) > np.nan_to_num(X_eps))
         idquet = np.ones(X.size, dtype = bool)
         if np.sum(idx) > 0:
-            events = _mkrngs(X_med, idx, gap_length = 60*10, 
+            events = _mkrngs(X_med, idx, gap_length = 10, 
                              min_length = min_length, 
                              zero_mean = False, extend=extend)
             if events.size == 0:
                 pass
-            else:
+            
+            if gap_close is not None:
                 if len(events.shape) == 3: events = events[0]
-                # Remove questionably low ranges. Median must be avobe mean
-                event_mask = np.zeros(events.shape[0], dtype=bool)
-                for sci, sct in enumerate(events):
-                    event_mask[sci] = True
-                # Skip if there are no scintillation events at this place
-                if events.size > 0:
-                    events = events[event_mask]
-                    for r in events:
-                        idquet[r[0]:r[1]] = False
+                if events.shape[0] > 1:
+                    gaps = np.empty(events.shape[0]-1, dtype=np.int32)
+                    for i in np.arange(1, events.shape[0]):
+                        gaps[i-1] = events[i, 0] - events[i-1, 1]
+                        if events[i, 0] - events[i-1, 1] < gap_close:
+                            events = np.vstack((events, [events[i-1, 1], events[i, 0]]))
+            if len(events.shape) == 3: events = events[0]
+            # Remove questionably low ranges. Median must be above mean
+            event_mask = np.zeros(events.shape[0], dtype=bool)
+            for sci, sct in enumerate(events):
+                event_mask[sci] = True
+            # Skip if there are no scintillation events at this place
+            if events.size > 0:
+                events = events[event_mask]
+                for r in events:
+                    idquet[r[0]:r[1]] = False
         Y[idquet] = np.nan
-    return Y
+    if diagnostic:
+        return Y, X_med
+    else:
+        return Y
             
 def _partialProcess(dt,r, x, fs=1, fc=0.1, hpf_order=6,
                     plot_ripple = False,
@@ -459,9 +473,9 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None):
                     print ('Processing scintillation sv/all {}/{}'.format(isv+1, svx))
                 sigma_tec[:,isv,irx] = _scintillationMask(sigma_tec[:,isv,irx], X_hat=st_hat, 
                                                  X_eps=st_eps, extend=0, N_median=60, 
-                                                 min_length=120)
+                                                 min_length=120, gap_close=5*60)
                 snr4[:,isv,irx] = _scintillationMask(snr4[:,isv,irx], X_hat=s4_hat, X_eps=s4_eps,
-                                                 extend=0, min_length=120)
+                                                 extend=0, min_length=120, gap_close=5*60)
                 #######################################################################
                 # Plot for refernce
                 if plot:
