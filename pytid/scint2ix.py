@@ -121,7 +121,11 @@ def _scintillationMask(X, X_hat, X_eps, N_median=60, min_length=60,
                              min_length = min_length, 
                              zero_mean = False, extend=extend)
             if events.size == 0:
-                pass
+                Y[idquet] = np.nan
+                if diagnostic:
+                    return Y, X_med
+                else:
+                    return Y
             
             if gap_close is not None:
                 if len(events.shape) == 3: events = events[0]
