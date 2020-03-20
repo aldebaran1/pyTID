@@ -240,8 +240,8 @@ if __name__ == '__main__':
     args = ['L1', 'L2']
     #Common time array
     if tlim is None:
-        t0 = datetime.strptime('{} {}'.format(year,int(doy)),'%Y %j')
-        t1 = datetime.strptime('{} {}'.format(year,int(doy) + 1),'%Y %j')
+        t0 = date #datetime.strptime('{} {}'.format(year,int(doy)),'%Y %j')
+        t1 = date + timedelta(days=1) # datetime.strptime('{} {}'.format(year,int(doy) + 1),'%Y %j')
     else:
         assert len(tlim) == 2
         t0 = datetime.strptime('{} {}-{}'.format(year,int(doy),tlim[0]),'%Y %j-%H:%M')
