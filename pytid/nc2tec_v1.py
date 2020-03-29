@@ -10,6 +10,7 @@ from pyGnss import gnssUtils as gu
 from datetime import datetime, timedelta
 import georinex as gr
 import numpy as np
+import subprocess
 from glob import glob
 from dateutil import parser
 import yaml
@@ -216,11 +217,16 @@ if __name__ == '__main__':
     nav_root = NAVFOLDER
     fnav = os.path.join(nav_root, 'brdc' + str(doy) + '0.' + str(year)[2:] + 'n')
     fsp3 = os.path.join(nav_root, 'igs' + str(doy) + '0.' + str(year)[2:] + 'sp3')
-    if not os.path.exists(fsp3):
-        import subprocess
+    if not os.path.exists(fnav):
+        subprocess.call("rm -rf {}.gz".format(fnav), shell=True)
         dhome = os.path.expanduser("~")
         dldir = os.path.join(dhome, 'pyGnss/utils/download_rnxn.py')
-        subprocess.call("python {} {} {} --type sp3".format(dldir, P.date, nav_root), shell=True, timeout=5)
+        subprocess.call("python {} {} {} --type gps".format(dldir, P.date, nav_root), shell=True, timeout=50)
+    if not os.path.exists(fsp3):
+        subprocess.call("rm -rf {}.gz".format(fsp3), shell=True)
+        dhome = os.path.expanduser("~")
+        dldir = os.path.join(dhome, 'pyGnss/utils/download_rnxn.py')
+        subprocess.call("python {} {} {} --type sp3".format(dldir, P.date, nav_root), shell=True, timeout=50)
     # Break at the beginning 
     assert os.path.exists(fsp3), "Cant find the sp3 file"
     
@@ -234,8 +240,8 @@ if __name__ == '__main__':
     args = ['L1', 'L2']
     #Common time array
     if tlim is None:
-        t0 = datetime.strptime('{} {}'.format(year,int(doy)),'%Y %j')
-        t1 = datetime.strptime('{} {}'.format(year,int(doy) + 1),'%Y %j')
+        t0 = date #datetime.strptime('{} {}'.format(year,int(doy)),'%Y %j')
+        t1 = date + timedelta(days=1) # datetime.strptime('{} {}'.format(year,int(doy) + 1),'%Y %j')
     else:
         assert len(tlim) == 2
         t0 = datetime.strptime('{} {}-{}'.format(year,int(doy),tlim[0]),'%Y %j-%H:%M')
