@@ -15,7 +15,6 @@ from glob import glob
 from dateutil import parser
 import h5py, os
 import yaml
-import utils
 from numpy import array, where, ma, isnan, arange, mean, isfinite, mgrid, sort, ones
 from numpy import fromfile, float32, linspace, floor, ceil, add, multiply, copy
 from numpy import meshgrid, rot90, flip, ndarray
@@ -103,83 +102,83 @@ def returnNEXRAD(folder, downsample=1, dtype='single',darg='',im_mask=220, RGB=0
 
     return X,Y,Z
 
-#def getNeighbours(image,i,j,N=3):
-#    """
-#    Return an array of <=9 neighbour pixel of an image with a center at (i,j)
-#    """
-#    nbg = []
-#    m = int(floor(N/2))
-#    M = int(ceil(N/2))
-#    for k in arange(i-m, i+M):
-#        for l in arange(j-m, j+M):
-#            try:
-#                nbg.append(image[k,l])
-#            except:
-#                pass
-#    return array(nbg)
-#
-#def fillPixels(im, N=1):
-#    """
-#    Fill in the dead pixels. If a dead pixel has a least 4 finite neighbour
-#    pixel, than replace the center pixel with a mean valuse of the neighbours
-#    """
-#    X = im.shape[0]-1
-#    Y = im.shape[1]-1
-#    imcopy = copy(im)
-#    for n in range(N):
-#        skip = int(floor((3+n)/2))
-#        starti = 0
-#        startj = 0
-#        forwardi = int(floor(0.6*X))
-#        backwardi = int(floor(0.4*X))
-#        if n%2 == 0:
-#            for i in arange(starti, forwardi, skip):
-#                for j in arange(startj, Y, skip):
-#                    # Check if th epixel is dead, i.e. empty
-#                    if isnan(im[i,j]):
-#                        # Get its neighbours as a np array
-#                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
-#                        # If there are at leas 4 neighbours, replace the value with a mean
-#                        if sum(isfinite(nbg)) >= 4:
-#                            ix = where(isfinite(nbg))[0]
-#                            avg = mean(nbg[ix])
-#                            im[i,j] = avg
-#            for i in arange(X, backwardi, -skip):
-#                for j in arange(Y, 0, -skip):
-#                    # Check if th epixel is dead, i.e. empty
-#                    if isnan(im[i,j]):
-#                        # Get its neighbours as a np array
-#                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
-#                        # If there are at leas 4 neighbours, replace the value with a mean
-#                        if sum(isfinite(nbg)) >= 4:
-#                            ix = where(isfinite(nbg))[0]
-#                            avg = mean(nbg[ix])
-#                            im[i,j] = avg
-#        else:
-#            for j in arange(startj, Y, skip):
-#                for i in arange(starti, forwardi, skip):
-#                    # Check if th epixel is dead, i.e. empty
-#                    if isnan(im[i,j]):
-#                        # Get its neighbours as a np array
-#                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
-#                        # If there are at leas 4 neighbours, replace the value with a mean
-#                        if sum(isfinite(nbg)) >= 4:
-#                            ix = where(isfinite(nbg))[0]
-#                            avg = mean(nbg[ix])
-#                            im[i,j] = avg
-#
-#            for j in arange(Y, 0, -skip):
-#                for i in arange(X, backwardi, -skip):
-#                    # Check if th epixel is dead, i.e. empty
-#                    if isnan(im[i,j]):
-#                        # Get its neighbours as a np array
-#                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
-#                        # If there are at leas 4 neighbours, replace the value with a mean
-#                        if sum(isfinite(nbg)) >= 4:
-#                            ix = where(isfinite(nbg))[0]
-#                            avg = mean(nbg[ix])
-#                            im[i,j] = avg
-#    return im
+def getNeighbours(image,i,j,N=3):
+    """
+    Return an array of <=9 neighbour pixel of an image with a center at (i,j)
+    """
+    nbg = []
+    m = int(floor(N/2))
+    M = int(ceil(N/2))
+    for k in arange(i-m, i+M):
+        for l in arange(j-m, j+M):
+            try:
+                nbg.append(image[k,l])
+            except:
+                pass
+    return array(nbg)
+
+def fillPixels(im, N=1):
+    """
+    Fill in the dead pixels. If a dead pixel has a least 4 finite neighbour
+    pixel, than replace the center pixel with a mean valuse of the neighbours
+    """
+    X = im.shape[0]-1
+    Y = im.shape[1]-1
+    imcopy = copy(im)
+    for n in range(N):
+        skip = int(floor((3+n)/2))
+        starti = 0
+        startj = 0
+        forwardi = int(floor(0.6*X))
+        backwardi = int(floor(0.4*X))
+        if n%2 == 0:
+            for i in arange(starti, forwardi, skip):
+                for j in arange(startj, Y, skip):
+                    # Check if th epixel is dead, i.e. empty
+                    if isnan(im[i,j]):
+                        # Get its neighbours as a np array
+                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
+                        # If there are at leas 4 neighbours, replace the value with a mean
+                        if sum(isfinite(nbg)) >= 4:
+                            ix = where(isfinite(nbg))[0]
+                            avg = mean(nbg[ix])
+                            im[i,j] = avg
+            for i in arange(X, backwardi, -skip):
+                for j in arange(Y, 0, -skip):
+                    # Check if th epixel is dead, i.e. empty
+                    if isnan(im[i,j]):
+                        # Get its neighbours as a np array
+                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
+                        # If there are at leas 4 neighbours, replace the value with a mean
+                        if sum(isfinite(nbg)) >= 4:
+                            ix = where(isfinite(nbg))[0]
+                            avg = mean(nbg[ix])
+                            im[i,j] = avg
+        else:
+            for j in arange(startj, Y, skip):
+                for i in arange(starti, forwardi, skip):
+                    # Check if th epixel is dead, i.e. empty
+                    if isnan(im[i,j]):
+                        # Get its neighbours as a np array
+                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
+                        # If there are at leas 4 neighbours, replace the value with a mean
+                        if sum(isfinite(nbg)) >= 4:
+                            ix = where(isfinite(nbg))[0]
+                            avg = mean(nbg[ix])
+                            im[i,j] = avg
+
+            for j in arange(Y, 0, -skip):
+                for i in arange(X, backwardi, -skip):
+                    # Check if th epixel is dead, i.e. empty
+                    if isnan(im[i,j]):
+                        # Get its neighbours as a np array
+                        nbg = getNeighbours(imcopy,i,j,N=(3+n))
+                        # If there are at leas 4 neighbours, replace the value with a mean
+                        if sum(isfinite(nbg)) >= 4:
+                            ix = where(isfinite(nbg))[0]
+                            avg = mean(nbg[ix])
+                            im[i,j] = avg
+    return im
 
 def getEUVMaskCoordinates(latlim=[-89.5,89.5],lonlim=[-180,180],nlat=180,nlon=360):
     xgrid, ygrid = mgrid[lonlim[0]:lonlim[1]:nlon*1j, latlim[0]:latlim[1]:nlat*1j]
@@ -209,8 +208,8 @@ def getEUVMask(time,nlat=180,nlon=360,
         return 0, 0, 0
 
 def makeImage(im, pixel_iter):
-    im = utils.fillPixels(im, pixel_iter)
-    im = utils.fillPixels(im)
+    im = fillPixels(im, pixel_iter)
+    im = fillPixels(im)
     im = ndimage.median_filter(im, 3)
     #im = ma.masked_where(isnan(im),im)
     return im
@@ -343,7 +342,9 @@ if __name__ == '__main__':
                           meridians=meridians, parallels=parallels,
                           grid_linewidth=grid_linewidth,grid_color=grid_color,
                           apex=apex, mlon_cs=mlon_cs, date=dt[i],
-                          mlon_levels=mag_meridians, mlat_levels=mag_parallels
+                          mlon_levels=mag_meridians, mlat_levels=mag_parallels,
+                          mlon_labels=0, mlat_labels=0, 
+                          mlon_colors='w', mlat_colors='w'
                           )
         image = im[j].result()
         j+=1
