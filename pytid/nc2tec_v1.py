@@ -188,7 +188,7 @@ if __name__ == '__main__':
     tlim = P.tlim
     Ts = P.ts
     zero_mean = P.zeromean
-    
+    maxjump = 1.6 + (np.sqrt(Ts) - 1)    
     PLOT = P.plot
     if PLOT:
         if FIGUREFOLDER is None:
@@ -333,7 +333,7 @@ if __name__ == '__main__':
                     ixmask = (np.nan_to_num(elv) >= el_mask)
                     
                     # Get STEC and intervals
-                    stec, intervals = tecPerLOS(D, idel, maxjump=1, maxgap=10)
+                    stec, intervals = tecPerLOS(D, idel, maxjump=maxjump, maxgap=10)
                     F = np.nan * np.copy(stec)
                     F[np.isfinite(elv)] = pyGnss.getMappingFunction(elv[np.isfinite(elv)], 350)
                     stec *= F
