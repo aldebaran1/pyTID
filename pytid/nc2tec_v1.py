@@ -255,8 +255,10 @@ if __name__ == '__main__':
     
     # Savename
     if P.ofn is None:
-        sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(Ts) + 's.h5' 
-        savefn = os.path.join(SAVEFOLDER, sfn)
+        sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(Ts) + 's' 
+        if P.roti:
+            sfn += '_roti'
+        savefn = os.path.join(SAVEFOLDER, sfn + '.h5')
     else:
         if os.path.isfile(P.ofn): 
             assert os.file.splitext(P.ofn)[1] in ('.h5', '.hdf5')
