@@ -322,82 +322,82 @@ if __name__ == '__main__':
     rxmodel = np.zeros(rxl, dtype='<U25')
     for irx, fnc in enumerate(fnc):
         # New Array
-#        try:
-        svlist = gr.load(fnc).sv.values
-        leap_seconds = gu.getLeapSeconds(fnav)
-        D = gr.load(fnc)
-        dt = np.array([np.datetime64(ttt) for ttt in D.time.values]).astype('datetime64[s]').astype(datetime) - timedelta(seconds=leap_seconds)
-        tsps = np.diff(dt.astype('datetime64[s]'))[0].astype(int)
-        eps = 1 * np.sqrt(30/tsps)
-        VTEC, F, AER = pyGnss.getVTEC(fnc=fnc, fsp3=fsp3, jplg_file=None,
-                                 el_mask=el_mask_in, 
-                                 return_mapping_function=True,
-                                 return_aer=True)
-        SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
-        # Remove inital recovery at time 00:00
-        VTEC[:2,:] = np.nan
         try:
-            rxmodel[irx] = gr.load(fnc).rxmodel
-        except:
-            pass
-        rxpos[irx] = gr.load(fnc).position_geodetic
-        rxname[irx] = gr.load(fnc).filename[:4]
-#        rxn[irx] = nc_rx_name[irx]
-        if P.log:
-            with open(logfn, 'a') as LOG:
-                LOG.write('Processing {}/{}\n'.format(irx+1, rxl))
-                LOG.close()
-        else:
-            print ('{}/{}'.format(irx+1, rxl))
-        for isv, sv in enumerate(svlist):
-#            try:
-            if isv > 32: 
-                continue
-            ixmask = (np.nan_to_num(AER[:, isv, 1]) >= el_mask)
-            
-            idx, intervals = getIntervals(VTEC[:, isv], maxgap=1, maxjump=maxjump)
-            tecd, err_list = tecdPerLOS(VTEC[:, isv], intervals, polynom_list=polynom_list, eps=eps)
-            
-            idt = np.isin(t, dt[ixmask])
-            idt_reverse = np.isin(dt[ixmask], t[idt])
-            
-            # Store to output arrays
-            residuals[idt, isv, irx] = tecd[ixmask][idt_reverse]
-            el[idt, isv, irx] = AER[:, isv, 1][ixmask][idt_reverse]
-            az[idt, isv, irx] = AER[:, isv, 0][ixmask][idt_reverse]
-            
-            # Optionals
-            if P.stec: 
-                slanttec[idt, isv, irx] = VTEC[:, isv][ixmask][idt_reverse]
-            
-            if P.roti:
-                ixmaskr = (np.nan_to_num(AER[:, isv, 1]) >= (el_mask + 10))
-                tmp = VTEC[:, isv]
-                tmp[~ixmaskr] = np.nan
-                rot = np.hstack((np.nan, np.diff(tmp) / Ts))
-                roti_temp = scintillation.sigmaTEC(rot, 60)
-                roti[idt, isv, irx] = roti_temp[ixmask][idt_reverse]
-
-            if Ts == 1: 
+            svlist = gr.load(fnc).sv.values
+            leap_seconds = gu.getLeapSeconds(fnav)
+            D = gr.load(fnc)
+            dt = np.array([np.datetime64(ttt) for ttt in D.time.values]).astype('datetime64[s]').astype(datetime) - timedelta(seconds=leap_seconds)
+            tsps = np.diff(dt.astype('datetime64[s]'))[0].astype(int)
+            eps = 1 * np.sqrt(30/tsps)
+            VTEC, F, AER = pyGnss.getVTEC(fnc=fnc, fsp3=fsp3, jplg_file=None,
+                                     el_mask=el_mask_in, 
+                                     return_mapping_function=True,
+                                     return_aer=True)
+            SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
+            # Remove inital recovery at time 00:00
+            VTEC[:2,:] = np.nan
+            try:
+                rxmodel[irx] = gr.load(fnc).rxmodel
+            except:
+                pass
+            rxpos[irx] = gr.load(fnc).position_geodetic
+            rxname[irx] = gr.load(fnc).filename[:4]
+    #        rxn[irx] = nc_rx_name[irx]
+            if P.log:
+                with open(logfn, 'a') as LOG:
+                    LOG.write('Processing {}/{}\n'.format(irx+1, rxl))
+                    LOG.close()
+            else:
+                print ('{}/{}'.format(irx+1, rxl))
+            for isv, sv in enumerate(svlist):
                 try:
-                    S1 = SNR[:, isv]
-                except:
-                    S1 = np.nan * np.ones(dt.size)
-                snr[idt, isv, irx] = S1[ixmask][idt_reverse]
-            # Plot
-            if PLOT:
-                plots(dt, VTEC[:, isv], AER[:, isv, 1], tecd, polynom_list, err_list, saveroot=FIGUREFOLDER)
-#            except Exception as e:
-#                    print ("Skipped: Rx: {}, SV:{}".format(irx, isv))
-#                print (e)
+                    if isv > 32: 
+                        continue
+                    ixmask = (np.nan_to_num(AER[:, isv, 1]) >= el_mask)
+                    
+                    idx, intervals = getIntervals(VTEC[:, isv], maxgap=1, maxjump=maxjump)
+                    tecd, err_list = tecdPerLOS(VTEC[:, isv], intervals, polynom_list=polynom_list, eps=eps)
+                    
+                    idt = np.isin(t, dt[ixmask])
+                    idt_reverse = np.isin(dt[ixmask], t[idt])
+                    
+                    # Store to output arrays
+                    residuals[idt, isv, irx] = tecd[ixmask][idt_reverse]
+                    el[idt, isv, irx] = AER[:, isv, 1][ixmask][idt_reverse]
+                    az[idt, isv, irx] = AER[:, isv, 0][ixmask][idt_reverse]
+                    
+                    # Optionals
+                    if P.stec: 
+                        slanttec[idt, isv, irx] = VTEC[:, isv][ixmask][idt_reverse]
+                    
+                    if P.roti:
+                        ixmaskr = (np.nan_to_num(AER[:, isv, 1]) >= (el_mask + 10))
+                        tmp = VTEC[:, isv]
+                        tmp[~ixmaskr] = np.nan
+                        rot = np.hstack((np.nan, np.diff(tmp) / Ts))
+                        roti_temp = scintillation.sigmaTEC(rot, 60)
+                        roti[idt, isv, irx] = roti_temp[ixmask][idt_reverse]
+        
+                    if Ts == 1: 
+                        try:
+                            S1 = SNR[:, isv]
+                        except:
+                            S1 = np.nan * np.ones(dt.size)
+                        snr[idt, isv, irx] = S1[ixmask][idt_reverse]
+                    # Plot
+                    if PLOT:
+                        plots(dt, VTEC[:, isv], AER[:, isv, 1], tecd, polynom_list, err_list, saveroot=FIGUREFOLDER)
+                except Exception as e:
+                    print ("Skipped: Rx: {}, SV:{}".format(irx, isv))
+                    print (e)
 #                    if P.log:
 #                        LOG.write(str(e) + '\n')
                 
 #                        pass
 #                    else:
 #                        print (e)
-#        except Exception as e:
-#            print (e)
+        except Exception as e:
+            print (e)
 #            if P.log:
 #                with open(logfn, 'a') as LOG:
 #                    LOG.write(str(e) + '\n')
