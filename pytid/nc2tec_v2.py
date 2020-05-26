@@ -200,12 +200,6 @@ if __name__ == '__main__':
         SAVEFOLDER = '/media/smrak/gnss/hdf/'
         FIGUREFOLDER = '/media/smrak/gnss/plots/'
         
-        OBSFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\obs\\'
-        NAVFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\'
-        SBFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\'
-        SAVEFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\hdf\\'
-        FIGUREFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\testp\\'
-    
     else:
         yamlcfg = yaml.load(open(P.cfg, 'r'), Loader=yaml.SafeLoader)
         OBSFOLDER = yamlcfg.get('obsfolder')
