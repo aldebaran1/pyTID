@@ -5,7 +5,7 @@ Created on Sat Mar 16 11:57:09 2019
 
 @author: smrak
 """
-from pyGnss import pyGnss
+from pyGnss import pyGnss, scintillation
 from pyGnss import gnssUtils as gu
 from datetime import datetime, timedelta
 import georinex as gr
@@ -160,6 +160,7 @@ if __name__ == '__main__':
     p.add_argument('--cfg', help = 'Path to the config (yaml) file', default = None)
     p.add_argument('--log', help = 'If you prefer to make a .log file?', action = 'store_true')
     p.add_argument('--stec', help = 'Save slant TEC?', action = 'store_true')
+    p.add_argument('--roti', help = 'compute ROTI?', action = 'store_true')
     p.add_argument('--use_satbias', help = 'Correct the stec for a satbias?', action = 'store_true')
     p.add_argument('--zeromean', help = 'Want to sheck each dtec sector is ~~zero mean?', action = 'store_true')
     p.add_argument('--plot', help = 'Plot the processing steps?', action = 'store_true')
@@ -188,7 +189,9 @@ if __name__ == '__main__':
     tlim = P.tlim
     Ts = P.ts
     zero_mean = P.zeromean
-    maxjump = 1.6 + (np.sqrt(Ts) - 1)    
+    
+    maxjump = 1.6 + (np.sqrt(Ts) - 1)
+    
     PLOT = P.plot
     if PLOT:
         if FIGUREFOLDER is None:
@@ -252,8 +255,10 @@ if __name__ == '__main__':
     
     # Savename
     if P.ofn is None:
-        sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(Ts) + 's.h5' 
-        savefn = os.path.join(SAVEFOLDER, sfn)
+        sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(Ts) + 's' 
+        if P.roti:
+            sfn += '_roti'
+        savefn = os.path.join(SAVEFOLDER, sfn + '.h5')
     else:
         if os.path.isfile(P.ofn): 
             assert os.file.splitext(P.ofn)[1] in ('.h5', '.hdf5')
@@ -285,6 +290,7 @@ if __name__ == '__main__':
     # Output arrays
     if P.stec : slanttec = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     residuals = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
+    if P.roti: roti = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     if Ts == 1: snr = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     el = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     az = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
@@ -293,8 +299,8 @@ if __name__ == '__main__':
     rxmodel = np.zeros(rxl, dtype='<U25')
     for irx, fnc in enumerate(fnc):
         # New Array
-        TEC = np.nan * np.zeros(t.shape[0], dtype=np.float16)
-        TECD = np.nan * np.zeros(t.shape[0], dtype=np.float16)
+#        TEC = np.nan * np.zeros(t.shape[0], dtype=np.float16)
+#        TECD = np.nan * np.zeros(t.shape[0], dtype=np.float16)
         try:
             svlist = gr.load(fnc).sv.values
             navdata = gr.load(fnav)
@@ -346,6 +352,7 @@ if __name__ == '__main__':
                     tecd[~ixmask] = np.nan
                     stec[~ixmask] = np.nan
                     elv[~ixmask] = np.nan
+                    
                     idt = np.isin(t, dt[ixmask])
                     idt_reverse = np.isin(dt[ixmask], t[idt])
                     
@@ -353,8 +360,16 @@ if __name__ == '__main__':
                     residuals[idt, isv, irx] = tecd[ixmask][idt_reverse]
                     el[idt, isv, irx] = D.el.values[ixmask][idt_reverse]
                     az[idt, isv, irx] = D.az.values[ixmask][idt_reverse]
+                    
                     # Optionals
                     if P.stec: slanttec[idt, isv, irx] = stec[ixmask][idt_reverse]
+                    
+                    if P.roti:
+                        rot = np.hstack((np.nan, np.diff(stec) / Ts))
+                        roti_temp = scintillation.sigmaTEC(rot, 60)
+                        roti_temp[~ixmask] = np.nan
+                        roti[idt, isv, irx] = roti_temp[ixmask][idt_reverse]
+
                     if Ts == 1: 
                         try:
                             S1 = D['S1'].values
@@ -362,7 +377,7 @@ if __name__ == '__main__':
                         except:
                             S1 = np.nan * np.ones(dt.size)
                         snr[idt, isv, irx] = S1[ixmask][idt_reverse]
-                    
+                    # Plot
                     if PLOT:
                         plots(dt, stec, elv, tecd, polynom_list, err_list, saveroot=FIGUREFOLDER)
                 except Exception as e:
@@ -407,6 +422,8 @@ if __name__ == '__main__':
     h5file = h5py.File(savefn, 'w')
     h5file.create_dataset('obstimes', data=th5)
     h5file.create_dataset('res', data=residuals, compression='gzip', compression_opts=9)
+    if P.roti:
+        h5file.create_dataset('roti', data=roti, compression='gzip', compression_opts=9)
     if P.stec:
         h5file.create_dataset('stec', data=slanttec, compression='gzip', compression_opts=9)
     if Ts == 1: 
