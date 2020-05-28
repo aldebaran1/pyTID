@@ -95,6 +95,7 @@ def plots(dt, stec, elv, tecd_v1, polynom_list, err_list=[], saveroot=None):
         
         ax011.tick_params(axis='y', colors='blue')
         ax011.grid(axis='y', color='blue')
+        ax01.set_xticks(np.arange(0,20,2))
     except:
         pass
     myFmt = dates.DateFormatter('%H:%M')
@@ -200,6 +201,12 @@ if __name__ == '__main__':
         SAVEFOLDER = '/media/smrak/gnss/hdf/'
         FIGUREFOLDER = '/media/smrak/gnss/plots/'
         
+        OBSFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\obs\\'
+        NAVFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\'
+        SBFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\'
+        SAVEFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\hdf\\'
+        FIGUREFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\testp\\'
+    
     else:
         yamlcfg = yaml.load(open(P.cfg, 'r'), Loader=yaml.SafeLoader)
         OBSFOLDER = yamlcfg.get('obsfolder')
@@ -217,7 +224,7 @@ if __name__ == '__main__':
     Ts = P.ts
     zero_mean = P.zeromean
     
-    el_mask_in = el_mask - 15 if (el_mask - 15) >= 8 else 8
+    el_mask_in = (el_mask - 15) if (el_mask - 15) >= 8 else 8
     maxjump = 1.6 + (np.sqrt(Ts) - 1)
     
     PLOT = P.plot
@@ -329,10 +336,16 @@ if __name__ == '__main__':
             dt = np.array([np.datetime64(ttt) for ttt in D.time.values]).astype('datetime64[s]').astype(datetime) - timedelta(seconds=leap_seconds)
             tsps = np.diff(dt.astype('datetime64[s]'))[0].astype(int)
             eps = 1 * np.sqrt(30/tsps)
-            VTEC, F, AER = pyGnss.getVTEC(fnc=fnc, fsp3=fsp3, jplg_file=None,
-                                     el_mask=el_mask_in, 
-                                     return_mapping_function=True,
-                                     return_aer=True)
+            STEC = pyGnss.getSTEC(fnc=fnc, fsp3=fsp3)
+#            VTEC, F, AER = pyGnss.getVTEC(fnc=fnc, fsp3=fsp3, jplg_file=None,
+#                                     el_mask=el_mask_in, 
+#                                     return_mapping_function=True,
+#                                     return_aer=True, maxgap=1, maxjump=maxjump)
+            DCB, F, AER = pyGnss.getDCB(fnc=fnc, fsp3=fsp3, jplg_file=None,
+                                 el_mask=el_mask_in, maxgap=1, 
+                                 maxjump=maxjump, return_mapping_function=True,
+                                 return_aer=True)
+            VTEC = STEC - DCB
             SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
             # Remove inital recovery at time 00:00
             VTEC[:2,:] = np.nan
@@ -353,10 +366,13 @@ if __name__ == '__main__':
                 try:
                     if isv > 32: 
                         continue
-                    ixmask = (np.nan_to_num(AER[:, isv, 1]) >= el_mask)
+                    ixmask = np.nan_to_num(AER[:, isv, 1]) >= el_mask
                     
                     idx, intervals = getIntervals(VTEC[:, isv], maxgap=1, maxjump=maxjump)
                     tecd, err_list = tecdPerLOS(VTEC[:, isv], intervals, polynom_list=polynom_list, eps=eps)
+                    tecd[~ixmask] = np.nan
+                    tec = VTEC[:, isv]
+                    tec[~ixmask] = np.nan
                     
                     idt = np.isin(t, dt[ixmask])
                     idt_reverse = np.isin(dt[ixmask], t[idt])
@@ -371,10 +387,7 @@ if __name__ == '__main__':
                         slanttec[idt, isv, irx] = VTEC[:, isv][ixmask][idt_reverse]
                     
                     if P.roti:
-                        ixmaskr = (np.nan_to_num(AER[:, isv, 1]) >= (el_mask + 10))
-                        tmp = VTEC[:, isv]
-                        tmp[~ixmaskr] = np.nan
-                        rot = np.hstack((np.nan, np.diff(tmp) / Ts))
+                        rot = np.hstack((np.nan, np.diff(tec) / Ts))
                         roti_temp = scintillation.sigmaTEC(rot, 60)
                         roti[idt, isv, irx] = roti_temp[ixmask][idt_reverse]
         
@@ -386,7 +399,7 @@ if __name__ == '__main__':
                         snr[idt, isv, irx] = S1[ixmask][idt_reverse]
                     # Plot
                     if PLOT:
-                        plots(dt, VTEC[:, isv], AER[:, isv, 1], tecd, polynom_list, err_list, saveroot=FIGUREFOLDER)
+                        plots(dt, tec, AER[:, isv, 1], tecd, polynom_list, err_list, saveroot=FIGUREFOLDER)
                 except Exception as e:
                     print ("Skipped: Rx: {}, SV:{}".format(irx, isv))
                     print (e)
