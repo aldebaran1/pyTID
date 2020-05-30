@@ -386,8 +386,13 @@ if __name__ == '__main__':
                         slanttec[idt, isv, irx] = VTEC[:, isv][ixmask][idt_reverse]
                     
                     if P.roti:
-                        rot = np.hstack((np.nan, np.diff(tec) / Ts))
-                        roti_temp = scintillation.sigmaTEC(rot, 60)
+                        roti_t = int(60 / tsps)
+                        rot = np.hstack((np.nan, (np.diff(tec) * roti_t)))
+                        if Ts == 1:
+                            roti_temp = scintillation.sigmaTEC(rot, 60)
+                        else: #5 min
+                            roti_T = int((60*5) / tsps)
+                            roti_temp = scintillation.sigmaTEC(rot, roti_T)
                         roti[idt, isv, irx] = roti_temp[ixmask][idt_reverse]
         
                     if Ts == 1: 
