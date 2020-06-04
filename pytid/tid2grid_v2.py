@@ -50,20 +50,33 @@ def makeImage(dtec, xgrid, ygrid,
         longitude = ipp_lla[1]
         latitude = ipp_lla[0]
     assert (longitude is not None) and (latitude is not None), "Lat/Lon coordinates invalid!"
+    
     for isv in range(dtec.shape[0]):
-            for irx in np.where(np.isfinite(dtec[isv]))[0]:
-                idx, idy = getImageIndex(x=longitude[isv,irx], y=latitude[isv,irx],
-                                         xlim=lonlim, ylim=latlim,
-                                         xgrid=xgrid, ygrid=ygrid)
-                # If image indexes are valid
-                if np.isfinite(idx) and np.isfinite(idy):
-                    # Assign the value to the pixel
-                    if np.isnan(im[idx,idy]):
-                        im[idx,idy] = dtec[isv,irx]
-                    # If this is not the first value to assign, assign a
-                    # mean of both values
-                    else:
-                        im[idx,idy] = (im[idx,idy] + dtec[isv,irx]) / 2
+        for irx in np.where(np.isfinite(dtec[isv]))[0]:
+            idx, idy = getImageIndex(x=longitude[isv,irx], y=latitude[isv,irx],
+                                     xlim=lonlim, ylim=latlim,
+                                     xgrid=xgrid, ygrid=ygrid)
+            # If image indexes are valid
+            if np.isfinite(idx) and np.isfinite(idy):
+                if im[idx,idy] is None:
+                    im[idx,idy] = [dtec[isv,irx]]
+                else:
+                    im[idx,idy].append(dtec[isv,irx])
+    for i in im.shape[0]:
+        for j in im.shape[1]:
+            if im[i,j] is None:
+                im[i,j] = np.nan
+            else:
+                im[i,j] = np.nanmedian(im[i,j])
+                
+                
+#                # Assign the value to the pixel
+#                if np.isnan(im[idx,idy]):
+#                    im[idx,idy] = dtec[isv,irx]
+#                # If this is not the first value to assign, assign a
+#                # mean of both values
+#                else:
+#                    im[idx,idy] = (im[idx,idy] + dtec[isv,irx]) / 2
     
     return im
 
@@ -116,13 +129,14 @@ if __name__ == '__main__':
         for i in range(f['obstimes'][:].shape[0]):
             print ("{}/{}".format(i+1, f['obstimes'][:].shape[0]))
             try:
+                im0 = np.empty(np.shape(im), dtype=object)
                 imtemp = makeImage(dtec=f['res'][i], xgrid=xgrid, ygrid=ygrid,
                                    latitude = None, 
                                    longitude = None, 
                                    azimuth = f['az'][i],
                                    elevation = f['el'][i],
                                    rxp = f['rx_positions'], altkm=P.altkm,
-                                   im=np.nan*im)
+                                   im=im0)
                 images.append(imtemp)
             except Exception as e:
                 print (e)
