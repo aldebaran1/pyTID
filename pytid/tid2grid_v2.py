@@ -62,8 +62,8 @@ def makeImage(dtec, xgrid, ygrid,
                     im[idx,idy] = [dtec[isv,irx]]
                 else:
                     im[idx,idy].append(dtec[isv,irx])
-    for i in im.shape[0]:
-        for j in im.shape[1]:
+    for i in range(im.shape[0]):
+        for j in range(im.shape[1]):
             if im[i,j] is None:
                 im[i,j] = np.nan
             else:
