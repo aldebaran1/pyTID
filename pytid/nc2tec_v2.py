@@ -336,16 +336,16 @@ if __name__ == '__main__':
             dt = np.array([np.datetime64(ttt) for ttt in D.time.values]).astype('datetime64[s]').astype(datetime) - timedelta(seconds=leap_seconds)
             tsps = np.diff(dt.astype('datetime64[s]'))[0].astype(int)
             eps = 1 * np.sqrt(30/tsps)
-            STEC = pyGnss.getSTEC(fnc=fnc, fsp3=fsp3)
-    #        VTEC, F, AER = pyGnss.getVTEC(fnc=fnc, fsp3=fsp3, jplg_file=None,
-    #                                 el_mask=el_mask_in, 
-    #                                 return_mapping_function=True,
-    #                                 return_aer=True, maxgap=1, maxjump=maxjump)
-            DCB, F, AER = pyGnss.getDCB(fnc=fnc, fsp3=fsp3, jplg_file=None,
-                                 el_mask=el_mask_in, maxgap=1, maxjump=maxjump, 
-                                 return_mapping_function=True,
-                                 return_aer=True)
-            VTEC = STEC - DCB
+#            STEC = pyGnss.getSTEC(fnc=fnc, fsp3=fsp3)
+            VTEC, F, AER = pyGnss.getVTEC(fnc=fnc, fsp3=fsp3, jplg_file=None,
+                                     el_mask=el_mask_in, 
+                                     return_mapping_function=True,
+                                     return_aer=True, maxgap=1, maxjump=maxjump)
+#            DCB, F, AER = pyGnss.getDCB(fnc=fnc, fsp3=fsp3, jplg_file=None,
+#                                 el_mask=el_mask_in, maxgap=1, maxjump=maxjump, 
+#                                 return_mapping_function=True,
+#                                 return_aer=True)
+#            VTEC = STEC - DCB
             SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
             # Remove inital recovery at time 00:00
             VTEC[:2,:] = np.nan
