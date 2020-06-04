@@ -128,18 +128,18 @@ if __name__ == '__main__':
 
         for i in range(f['obstimes'][:].shape[0]):
             print ("{}/{}".format(i+1, f['obstimes'][:].shape[0]))
-            try:
-                im0 = np.empty(np.shape(im), dtype=object)
-                imtemp = makeImage(dtec=f['res'][i], xgrid=xgrid, ygrid=ygrid,
-                                   latitude = None, 
-                                   longitude = None, 
-                                   azimuth = f['az'][i],
-                                   elevation = f['el'][i],
-                                   rxp = f['rx_positions'], altkm=P.altkm,
-                                   im=im0)
-                images.append(imtemp)
-            except Exception as e:
-                print (e)
+#            try:
+            im0 = np.empty(np.shape(im), dtype=object)
+            imtemp = makeImage(dtec=f['res'][i], xgrid=xgrid, ygrid=ygrid,
+                               latitude = None, 
+                               longitude = None, 
+                               azimuth = f['az'][i],
+                               elevation = f['el'][i],
+                               rxp = f['rx_positions'], altkm=P.altkm,
+                               im=im0)
+            images.append(imtemp)
+#            except Exception as e:
+#                print (e)
     else:
         for i in range(f['obstimes'][:].shape[0]):
             print ("{}/{}".format(i+1, f['obstimes'][:].shape[0]))
