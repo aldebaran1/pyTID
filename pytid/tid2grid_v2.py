@@ -40,6 +40,7 @@ def makeImage(dtec, xgrid, ygrid,
               longitude = None, latitude = None, 
               azimuth = None, elevation = None, rxp = None, altkm = None,
               im = np.nan):
+    imout = np.nan * np.copy(im, dtype=np.float32)
     lonlim = [np.min(xgrid), np.max(xgrid)]
     latlim = [np.min(ygrid), np.max(ygrid)]
     if azimuth is not None and elevation is not None and rxp is not None and altkm is not None:
@@ -65,9 +66,9 @@ def makeImage(dtec, xgrid, ygrid,
     for i in range(im.shape[0]):
         for j in range(im.shape[1]):
             if im[i,j] is None:
-                im[i,j] = np.nan
+                imout[i,j] = np.nan
             else:
-                im[i,j] = np.nanmedian(im[i,j])
+                imout[i,j] = np.nanmedian(im[i,j])
                 
                 
 #                # Assign the value to the pixel
