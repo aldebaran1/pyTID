@@ -137,6 +137,7 @@ if __name__ == '__main__':
                                elevation = f['el'][i],
                                rxp = f['rx_positions'], altkm=P.altkm,
                                im=im0)
+            print (np.sum(np.isfinite(imtemp)), imtemp.size)
             images.append(imtemp)
 #            except Exception as e:
 #                print (e)
