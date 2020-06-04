@@ -40,7 +40,7 @@ def makeImage(dtec, xgrid, ygrid,
               longitude = None, latitude = None, 
               azimuth = None, elevation = None, rxp = None, altkm = None,
               im = np.nan):
-    imout = np.nan * np.copy(im, dtype=np.float32)
+    imout = np.nan * np.ones(im.shape, dtype=np.float32)
     lonlim = [np.min(xgrid), np.max(xgrid)]
     latlim = [np.min(ygrid), np.max(ygrid)]
     if azimuth is not None and elevation is not None and rxp is not None and altkm is not None:
@@ -79,7 +79,7 @@ def makeImage(dtec, xgrid, ygrid,
 #                else:
 #                    im[idx,idy] = (im[idx,idy] + dtec[isv,irx]) / 2
     
-    return im
+    return imout
 
 def makeTheHDF(t,x,y,im,filename):
     f = h5py.File(filename, 'w')
