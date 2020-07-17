@@ -65,19 +65,8 @@ def makeImage(dtec, xgrid, ygrid,
                     im[idx,idy].append(dtec[isv,irx])
     for i in range(im.shape[0]):
         for j in range(im.shape[1]):
-            if im[i,j] is None:
-                imout[i,j] = np.nan
-            else:
+            if im[i,j] is not None:
                 imout[i,j] = np.nanmedian(im[i,j])
-                
-                
-#                # Assign the value to the pixel
-#                if np.isnan(im[idx,idy]):
-#                    im[idx,idy] = dtec[isv,irx]
-#                # If this is not the first value to assign, assign a
-#                # mean of both values
-#                else:
-#                    im[idx,idy] = (im[idx,idy] + dtec[isv,irx]) / 2
     
     return imout
 
