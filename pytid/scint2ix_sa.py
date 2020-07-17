@@ -281,7 +281,7 @@ def process(fn, odir=None, cfg=None, log=None, irxforce=None, TH=0):
     # Output file
     if odir is None:
         odir = os.path.split(fn)[0] + separator
-    ofn = odir + 'ix_' + '_'.join(os.path.split(fn)[1].split('.')[:2]) + '_{}km.h5'.format(H)
+    ofn = odir + 'ix_' + '_'.join(os.path.split(fn)[1].split('.')[:2]) + '_{}km_{}th.h5'.format(H,str(TH).replace('.',''))
     # Dealing with duplicate file names
     if os.path.exists(ofn):
         head = os.path.splitext(ofn)[0]
