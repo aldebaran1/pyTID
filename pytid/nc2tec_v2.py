@@ -116,36 +116,6 @@ def plots(dt, stec, elv, tecd_v1, polynom_list, err_list=[], saveroot=None):
         plt.close(fig)
         
 
-def tecPerLOS(D, idel, maxgap=10, maxjump=1):
-    C1 = D['C1'].values
-    C1[~idel] = np.nan
-    C2 = D['P2'].values
-    C2[~idel] = np.nan
-    L1 = D['L1'].values
-    L1[~idel] = np.nan
-    L2 = D['L2'].values
-    L2[~idel] = np.nan
-    
-    stec = np.nan * np.ones(D.el.values.shape[0])
-    
-    if np.sum(np.isfinite(C1)) < (15 * (60/tsps)): 
-        # If shorter than 15 minutes, skip
-        return stec, []
-    
-    ixin, intervals = pyGnss.getIntervals(L1,L2,C1,C2, maxgap=maxgap, maxjump=maxjump)
-    
-    for ir, r in enumerate(intervals):
-        if r[-1] - r[0] < (15 / (60/tsps)):
-            intervals.pop(ir)
-        else:
-            stec[r[0]:r[-1]] = pyGnss.slantTEC(C1[r[0]:r[-1]], C2[r[0]:r[-1]], 
-                                          L1[r[0]:r[-1]], L2[r[0]:r[-1]])
-    if np.sum(np.isfinite(stec)) > 1:
-        stec_zero_bias = np.nanmin(stec)
-        stec -= stec_zero_bias - 5
-    
-    return stec, intervals
-
 def tecdPerLOS(stec, intervals, mask=None, eps=1, polynom_list=None, zero_mean=False):
     tecd = np.nan * np.ones(stec.size)
     if mask is None:
@@ -336,17 +306,12 @@ if __name__ == '__main__':
             dt = np.array([np.datetime64(ttt) for ttt in D.time.values]).astype('datetime64[s]').astype(datetime) - timedelta(seconds=leap_seconds)
             tsps = np.diff(dt.astype('datetime64[s]'))[0].astype(int)
             eps = 1 * np.sqrt(30/tsps)
-#            STEC = pyGnss.getSTEC(fnc=fnc, fsp3=fsp3)
             VTEC, F, AER = pyGnss.getVTEC(fnc=fnc, fsp3=fsp3, jplg_file=None,
                                      el_mask=el_mask_in, 
                                      return_mapping_function=True,
                                      return_aer=True, maxgap=1, maxjump=maxjump)
-#            DCB, F, AER = pyGnss.getDCB(fnc=fnc, fsp3=fsp3, jplg_file=None,
-#                                 el_mask=el_mask_in, maxgap=1, maxjump=maxjump, 
-#                                 return_mapping_function=True,
-#                                 return_aer=True)
-#            VTEC = STEC - DCB
-            SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
+            if Ts == 1: 
+                SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
             # Remove inital recovery at time 00:00
             VTEC[:2,:] = np.nan
             try:
