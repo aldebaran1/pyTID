@@ -75,26 +75,37 @@ def main(F, el_mask = None, odir = None):
     polynom_list = np.arange(0,20)
 
     el_mask_in = (el_mask - 10) if (el_mask - 10) >= 8 else 8
+    
     print ('Reading in receiver names')
     t0 = datetime.now()
-    rxn_all = np.asanyarray([row[12].decode() for row in D['Data/Table Layout'][()]])
+    obstimes_all = []
+    rxn_all = []
+    sv_all = []
+    for row in D['Data/Table Layout'][()]:
+        obstimes_all.append(row[9])
+        rxn_all.append(row[12].decode())
+        sv_all.append(row[13])
+    
+    obstimes_unix = np.unique(np.asarray(obstimes_all))
+    rxn_all = np.asarray(rxn_all)
+    sv_all = np.asarray(sv_all)
+    print ('It took {}, to read: times, satelites and receivers'.format(datetime.now()-t0))
+    D.close()
+    
     rxn = np.unique(rxn_all)
-    print ('Read in {}.\nReading in satellite number'.format(datetime.now()-t0))
-    t0 = datetime.now()
-    sv_unique = np.unique(np.asanyarray([row[13] for row in D['Data/Table Layout'][()]]))
+    sv_unique = np.unique(sv_all)
     sv_index = np.arange(sv_unique.size)
     sv_list = {}
     for i, s in enumerate(sv_unique):
         sv_list[str(s)] = sv_index[i]
-    print ('Read in {}.\nReading in observations times'.format(datetime.now()-t0))
-    obstimes = np.unique(np.asanyarray([datetime.utcfromtimestamp(row[9]) for row in D['Data/Table Layout'][()]]))
-    obstimes_unix = gu.datetime2posix(obstimes)
-    print ('Read in {}.\n'.format(datetime.now()-t0))
-    D.close()
+
+
     # Out-filename
+    t_start = datetime.utcfromtimestamp(obstimes_unix[0])
+    t_end = datetime.utcfromtimestamp(obstimes_unix[-1])
     if odir is None:
         odir = os.path.split(F)[0]
-    sfn = str(obstimes[0].year) + '_' + obstimes[0].strftime('%m%dT%H%M') + '-' + obstimes[-1].strftime('%m%dT%H%M') + '_' + 'madrigallos' + '_' + str(el_mask) +'el_' + str(tsps) + 's' + '_roti'
+    sfn = str(t_start.year) + '_' + t_start.strftime('%m%dT%H%M') + '-' + t_end.strftime('%m%dT%H%M') + '_' + 'madrigallos' + '_' + str(el_mask) +'el_' + str(tsps) + 's' + '_roti'
     savefn = os.path.join(odir, sfn + '.h5')
     # Duplicate file names
     if os.path.exists(savefn):
@@ -112,11 +123,11 @@ def main(F, el_mask = None, odir = None):
     LOG = open(logfn, 'w')
     LOG.close()
     print ('Init arrays')
-    TEC = np.nan * np.zeros((obstimes.size, sv_unique.size, rxn.size), dtype=np.float16)
-    DTEC = np.nan * np.zeros((obstimes.size, sv_unique.size, rxn.size), dtype=np.float16)
-    ROTI = np.nan * np.zeros((obstimes.size, sv_unique.size, rxn.size), dtype=np.float16)
-    AZ = np.nan * np.zeros((obstimes.size, sv_unique.size, rxn.size), dtype=np.float16)
-    EL = np.nan * np.zeros((obstimes.size, sv_unique.size, rxn.size), dtype=np.float16) 
+    TEC = np.nan * np.zeros((obstimes_unix.size, sv_unique.size, rxn.size), dtype=np.float16)
+    DTEC = np.nan * np.zeros((obstimes_unix.size, sv_unique.size, rxn.size), dtype=np.float16)
+    ROTI = np.nan * np.zeros((obstimes_unix.size, sv_unique.size, rxn.size), dtype=np.float16)
+    AZ = np.nan * np.zeros((obstimes_unix.size, sv_unique.size, rxn.size), dtype=np.float16)
+    EL = np.nan * np.zeros((obstimes_unix.size, sv_unique.size, rxn.size), dtype=np.float16) 
     RXP = np.nan * np.zeros((rxn.size, 3), dtype=np.float16)
     print ('Saving to: {}'.format(savefn))
     h5file = h5py.File(savefn, 'w')
@@ -148,10 +159,23 @@ def main(F, el_mask = None, odir = None):
         try:
             D = h5py.File(F, 'r')
             idrx = np.isin(rxn_all, rx)
-            sv_all = np.asanyarray([row[13] for row in D['Data/Table Layout'][idrx]])
-            svn = np.unique(sv_all)
+            svn = np.unique(sv_all[idrx])
             rx_lat = D['Data/Table Layout'][idrx][0][-4]
             rx_lon = D['Data/Table Layout'][idrx][0][-3]
+            
+            t = []
+            vtec_tmp = []
+            elv_tmp = []
+            azm_tmp = []
+            for row in D['Data/Table Layout'][idrx]:
+                t.append(row[9])
+                vtec_tmp.append(row[18])
+                elv_tmp.append(row[-5])
+                azm_tmp.append(row[-6])
+            t = np.array(t)
+            vtec_tmp = np.array(vtec_tmp)
+            elv_tmp = np.array(elv_tmp)
+            azm_tmp = np.array(azm_tmp)
             D.close()
             
             h5file = h5py.File(savefn, 'a')
@@ -163,32 +187,19 @@ def main(F, el_mask = None, odir = None):
             del rx_lat, rx_lon
             
             for isv, sv in enumerate(svn):
-                vtec = np.nan * np.ones(obstimes.size, dtype=np.float16)
-                elv = np.nan * np.ones(obstimes.size, dtype=np.float16)
-                azm = np.nan * np.ones(obstimes.size, dtype=np.float16)
-                roti = np.nan * np.ones(obstimes.size, dtype=np.float16)
+                vtec = np.nan * np.ones(obstimes_unix.size, dtype=np.float16)
+                elv = np.nan * np.ones(obstimes_unix.size, dtype=np.float16)
+                azm = np.nan * np.ones(obstimes_unix.size, dtype=np.float16)
+                roti = np.nan * np.ones(obstimes_unix.size, dtype=np.float16)
                 
-                idsv = np.isin(sv_all, sv)
+                idsv = np.isin(sv_all[idrx], sv)
                 ids = sv_list[str(sv)]
                 
-                D = h5py.File(F, 'r')
-                t = []
-                vtec_tmp = []
-                elv_tmp = []
-                azm_tmp = []
-                for row in D['Data/Table Layout'][idrx][idsv]:
-                    t.append(row[9])
-                    vtec_tmp.append(row[18])
-                    elv_tmp.append(row[-5])
-                    azm_tmp.append(row[-6])
-                
-                D.close()
-                idt = np.isin(obstimes_unix, np.asarray(t))
-                vtec[idt] = np.array(vtec_tmp)
-                azm[idt] = np.array(azm_tmp)
-                elv[idt] = np.array(elv_tmp)
-                del t, vtec_tmp, elv_tmp, azm_tmp, idt
-                D.close()
+                idt = np.isin(obstimes_unix, t[idsv])
+                vtec[idt] = vtec_tmp[idsv]
+                azm[idt] = azm_tmp[idsv]
+                elv[idt] = elv_tmp[idsv]
+                del idt
                 
                 idel0 = np.nan_to_num(elv) < el_mask_in
                 idel = np.nan_to_num(elv) < el_mask
@@ -199,11 +210,8 @@ def main(F, el_mask = None, odir = None):
                     tecd[idel] = np.nan
                     
                     vtec[idel] = np.nan
-                    for ir, r in enumerate(intervals):
-                        if (r[1] - r[0]) > 20:
-                            rot = np.diff(vtec[r[0] : r[1]]) / tsps
-                            roti[r[0]+1 : r[1]] = scintillation.sigmaTEC(rot, 10) # 5 min
-                        del rot
+                    rot = np.hstack((np.nan, (np.diff(vtec) / tsps)))
+                    roti = scintillation.sigmaTEC(rot, 10) # 5 min
                     
                     h5file = h5py.File(savefn, 'a')
                     h5file['stec'][:, isv, irx] = vtec
