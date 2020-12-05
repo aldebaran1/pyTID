@@ -166,16 +166,28 @@ def main(F, el_mask = None, odir = None):
                 vtec = np.nan * np.ones(obstimes.size, dtype=np.float16)
                 elv = np.nan * np.ones(obstimes.size, dtype=np.float16)
                 azm = np.nan * np.ones(obstimes.size, dtype=np.float16)
+                roti = np.nan * np.ones(obstimes.size, dtype=np.float16)
                 
                 idsv = np.isin(sv_all, sv)
                 ids = sv_list[str(sv)]
                 
                 D = h5py.File(F, 'r')
-                t = np.asanyarray([datetime.utcfromtimestamp(row[9]) for row in D['Data/Table Layout'][idrx][idsv] ])
-                idt = np.isin(obstimes, t)
-                vtec[idt] = np.asanyarray([row[18] for row in D['Data/Table Layout'][idrx][idsv] ])
-                elv[idt] = np.asanyarray([row[-5] for row in D['Data/Table Layout'][idrx][idsv] ])
-                azm[idt] = np.asanyarray([row[-6] for row in D['Data/Table Layout'][idrx][idsv] ])
+                t = []
+                vtec_tmp = []
+                elv_tmp = []
+                azm_tmp = []
+                for row in D['Data/Table Layout'][idrx][idsv]:
+                    t.append(row[9])
+                    vtec_tmp.append(row[18])
+                    elv_tmp.append(row[-5])
+                    azm_tmp.append(row[-6])
+                
+                D.close()
+                idt = np.isin(obstimes_unix, np.asarray(t))
+                vtec[idt] = np.array(vtec_tmp)
+                azm[idt] = np.array(azm_tmp)
+                elv[idt] = np.array(elv_tmp)
+                del t, vtec_tmp, elv_tmp, azm_tmp, idt
                 D.close()
                 
                 idel0 = np.nan_to_num(elv) < el_mask_in
@@ -186,11 +198,12 @@ def main(F, el_mask = None, odir = None):
                     tecd, err_list = tecdPerLOS(vtec, intervals, polynom_list=polynom_list, eps=eps)
                     tecd[idel] = np.nan
                     
-                    rot = np.hstack((np.nan, (np.diff(vtec) / tsps)))
-                    roti = scintillation.sigmaTEC(rot, 10) # 5 min
-                    roti[idel] = np.nan
-                    
                     vtec[idel] = np.nan
+                    for ir, r in enumerate(intervals):
+                        if (r[1] - r[0]) > 20:
+                            rot = np.diff(vtec[r[0] : r[1]]) / tsps
+                            roti[r[0]+1 : r[1]] = scintillation.sigmaTEC(rot, 10) # 5 min
+                        del rot
                     
                     h5file = h5py.File(savefn, 'a')
                     h5file['stec'][:, isv, irx] = vtec
@@ -200,7 +213,7 @@ def main(F, el_mask = None, odir = None):
                     h5file['az'][:, isv, irx] = azm
                     h5file.close()
                     
-                    del vtec, tecd, elv, azm, roti, rot, idx, intervals, idel0, idel
+                    del vtec, tecd, elv, azm, roti, idx, intervals, idel0, idel
                     
                 except:
                     del vtec, elv, azm
