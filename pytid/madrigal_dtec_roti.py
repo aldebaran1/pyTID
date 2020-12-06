@@ -214,19 +214,18 @@ def main(F, el_mask = None, odir = None):
                     roti = scintillation.sigmaTEC(rot, 10) # 5 min
                     
                     h5file = h5py.File(savefn, 'a')
-                    h5file['stec'][:, isv, irx] = vtec
-                    h5file['roti'][:, isv, irx] = roti
-                    h5file['res'][:, isv, irx] = tecd
-                    h5file['el'][:, isv, irx] = elv
-                    h5file['az'][:, isv, irx] = azm
+                    h5file['stec'][:, ids, irx] = vtec
+                    h5file['roti'][:, ids, irx] = roti
+                    h5file['res'][:, ids, irx] = tecd
+                    h5file['el'][:, ids, irx] = elv
+                    h5file['az'][:, ids, irx] = azm
                     h5file.close()
                     
-                    del vtec, tecd, elv, azm, roti, idx, intervals, idel0, idel
+                    del idx, intervals, idel0, idel
                     
                 except:
-                    del vtec, elv, azm
-                
-            del idrx, idsv, ids
+                    pass
+            del vtec, roti, tecd, elv, azm
         except:
             pass
         
