@@ -1,5 +1,5 @@
 {
-fillpixel_iter: 3,
+fillpixel_iter: 1,
 skip: 1,
 projection: stereo,
 nightshade: ,
@@ -11,9 +11,9 @@ image_type: im,
 #image_nlevels: 20,
 cmap: jet,
 
-parallels: [-20,0,20,40,60,80],
+parallels: [-60,-40,-20,0,20,40,60,80],
 meridians: [-180,-160,-140,-120,-100,-80,-60,-40,-20],
-mag_parallels: [-20, 0, 20, 40, 60, 80],
+mag_parallels: [-60, -40, -20, 0, 20, 40, 60, 80],
 mag_meridians: [0, 4, 8, 12, 16, 20, 24],
 mlon_cs: mlt,
 

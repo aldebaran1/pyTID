@@ -2,7 +2,7 @@
 # Map
 figure_size: [12,8], # In inches!
 background_color: 'grey',
-border_color: 'w', #'#006600', #soft green
+border_color: 'k', #'#006600', #soft green
 grid_color: 'k',
 grid_linestyle: '--',
 grid_linewidth: 1,

@@ -17,7 +17,7 @@ import h5py, os
 import yaml, platform
 from numpy import array, where, ma, isnan, arange, mean, isfinite, mgrid, sort, ones
 from numpy import fromfile, float32, linspace, floor, ceil, add, multiply, copy
-from numpy import meshgrid, rot90, flip, ndarray, squeeze, nan, divide
+from numpy import meshgrid, rot90, flip, ndarray, squeeze, nan, divide, isin
 from numpy.ma import masked_invalid
 from datetime import datetime, timedelta
 from scipy import ndimage
@@ -234,9 +234,17 @@ def getEUVMask(time,nlat=180,nlon=360,
         return 0, 0, 0
 
 def makeImage(im, pixel_iter):
-    im = fillPixels(im, pixel_iter)
-    im = fillPixels(im)
-    im = ndimage.median_filter(im, 3)
+    if len(im.shape) == 2:
+        im = fillPixels(im, pixel_iter)
+        im = fillPixels(im)
+        im = ndimage.median_filter(im, 3)
+    elif len(im.shape) == 3:
+        ims = nan * copy(im)
+        for i in range(im.shape[0]):
+            im0 = fillPixels(im[i], pixel_iter)
+            im0 = fillPixels(im0)
+            ims[i] = ndimage.median_filter(im0, 3)
+        im = mean(ims, axis=0)
 
     return im
 
@@ -339,8 +347,6 @@ if __name__ == '__main__':
     
     #Averaging
     average = P.average if (P.average is not None) else 1
-    
-    
     # GPS Images
     gpsdata = h5py.File(gpsfn, 'r')
     time = gpsdata['data/time'][:]
@@ -352,16 +358,19 @@ if __name__ == '__main__':
     try:
         altkm = gpsdata.attrs['altkm']
     except:
-        altkm = 0
+        altkm = int(os.path.split(gpsfn)[1][-13:-10])
 
     datetimetime = array([datetime.utcfromtimestamp(t) for t in time])
-    dirnametime = datetimetime[0].strftime('%Y%m%d')
+    dirdatetime = datetimetime[0].strftime('%Y%m%d')
+    today = datetime.now().strftime('%Y%m%d')
     if P.tlim is not None:
-        if dirnametime != parser.parse(P.tlim[0]).strftime('%Y%m%d'):
-            t0 = parser.parse(dirnametime + 'T' + P.tlim[0])
-            t1 = parser.parse(dirnametime + 'T' + P.tlim[1])
+        if today == parser.parse(P.tlim[0]).strftime('%Y%m%d'):
+            t0 = parser.parse(dirdatetime + 'T' + P.tlim[0])
         else:
             t0 = parser.parse(P.tlim[0])
+        if today == parser.parse(P.tlim[1]).strftime('%Y%m%d'):
+            t1 = parser.parse(dirdatetime + 'T' + P.tlim[1])
+        else:
             t1 = parser.parse(P.tlim[0])
         timelim = [t0, t1]
         idt = (datetimetime >= timelim[0]) & (datetimetime <= timelim[1])
@@ -379,15 +388,16 @@ if __name__ == '__main__':
         idx = (TEC['xgrid'] >= xgrid.min()) & (TEC['xgrid'] <= xgrid.max())
         idy = (TEC['ygrid'] >= ygrid.min()) & (TEC['ygrid'] <= ygrid.max())
         xgtec, ygtec = meshgrid(TEC['xgrid'][idx], TEC['ygrid'][idy])
-        T0t = TEC['tecim'][idt]
+        idttec = isin(TEC['time'], dt)
+        T0t = TEC['tecim'][idttec]
         T0x = T0t[:, idx, :]
         T0 = T0x[:, :, idy]
-        tecdt = TEC['time'][idt]
+        tecdt = TEC['time'][idttec]
     
     # Save
     if platform.system() == 'Linux':
         odir = P.odir if P.odir is not None else '/media/smrak/gnss/images/'
-        odir += dirnametime + '_' + str(int(altkm)) + '_' + str(average) + '_' + str(clim[1]).replace(".", "")
+        odir += dirdatetime + '_' + str(int(altkm)) + '_' + str(average) + '_' + str(clim[1]).replace(".", "")
         if nightshade:
             odir += '_ns'
         if P.tec is not None:
@@ -395,7 +405,7 @@ if __name__ == '__main__':
         odir += '/'
     elif platform.system() == 'Windows':
         odir = P.odir if P.odir is not None else os.path.split(gpsfn)[0] + '\\images\\'
-        odir += dirnametime + '_' + str(int(altkm)) + '_' + str(average) + '_' + str(clim[1]).replace(".", "")
+        odir += dirdatetime + '_' + str(int(altkm)) + '_' + str(average) + '_' + str(clim[1]).replace(".", "")
         if nightshade:
             odir += '_ns'
         if P.tec is not None:
@@ -417,7 +427,7 @@ if __name__ == '__main__':
                           meridians=meridians, parallels=parallels,
                           grid_linewidth=grid_linewidth,grid_color=grid_color,
                           apex=apex, mlon_cs=mlon_cs, date=dt[i],
-                          nightshade=nightshade, ns_dt=dt[i], ns_alpha=0.05,
+                          nightshade=nightshade, ns_alpha=0.05,
                           mlon_levels=mag_meridians, mlat_levels=mag_parallels,
                           mlon_labels=False, mlat_labels=False, mgrid_style='--',
                           mlon_colors='w', mlat_colors='w', terminator=1, terminator_altkm=350,
@@ -433,7 +443,7 @@ if __name__ == '__main__':
             T00 = interpolateTEC(im=tecim, x0=xgtec, y0=ygtec, 
                                  xgrid=xg, ygrid=yg, 
                                  method='linear')
-            image = divide(image, T00)
+            image = divide(image, T00) * 100
             label = 'dTEC [%]'
         else:
             label = 'dTEC [TECu]'
