@@ -160,8 +160,8 @@ def main(F, el_mask = None, odir = None):
             D = h5py.File(F, 'r')
             idrx = np.isin(rxn_all, rx)
             svn = np.unique(sv_all[idrx])
-            rx_lat = D['Data/Table Layout'][idrx][0][-4]
-            rx_lon = D['Data/Table Layout'][idrx][0][-3]
+            rx_lat = D['Data/Table Layout'][idrx][0][-11]
+            rx_lon = D['Data/Table Layout'][idrx][0][-10]
             
             t = []
             vtec_tmp = []
@@ -214,7 +214,7 @@ def main(F, el_mask = None, odir = None):
                     roti = scintillation.sigmaTEC(rot, 10) # 5 min
                     
                     h5file = h5py.File(savefn, 'a')
-                    h5file['stec'][:, ids, irx] = vtec
+                    h5file['vtec'][:, ids, irx] = vtec
                     h5file['roti'][:, ids, irx] = roti
                     h5file['res'][:, ids, irx] = tecd
                     h5file['el'][:, ids, irx] = elv
