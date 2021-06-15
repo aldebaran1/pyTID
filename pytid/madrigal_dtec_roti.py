@@ -64,7 +64,7 @@ def tecdPerLOS(stec, intervals, mask=None, eps=1, polynom_list=None, zero_mean=F
         else:
             tecd[r[0]+1 : r[1]-1] = res
     
-    return tecd, err_list
+    return tecd #, err_list
 
 def main(F, el_mask = None, odir = None):
     global tsps
@@ -206,7 +206,7 @@ def main(F, el_mask = None, odir = None):
                 vtec[idel0] = np.nan
                 try:
                     idx, intervals = getIntervals(vtec, maxgap=5, maxjump=maxjump)
-                    tecd, err_list = tecdPerLOS(vtec, intervals, polynom_list=polynom_list, eps=eps)
+                    tecd = tecdPerLOS(vtec, intervals, polynom_list=polynom_list, eps=eps)
                     tecd[idel] = np.nan
                     
                     vtec[idel] = np.nan
