@@ -223,11 +223,11 @@ def main(F, el_mask = None, odir = None):
                     
                     del idx, intervals, idel0, idel
                     
-                except:
-                    pass
+                except Exception as e:
+                    print (e)
             del vtec, roti, tecd, elv, azm
-        except:
-            pass
+        except Exception as e:
+            print (e)
         
 
     with open(logfn, 'a') as LOG:
