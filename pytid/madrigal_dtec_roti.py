@@ -7,7 +7,6 @@ Created on Fri Nov 20 12:06:16 2020
 
 import numpy as np
 import os, h5py
-from pyGnss import gnssUtils as gu
 from pyGnss import scintillation
 from pyGnss import pyGnss
 from datetime import datetime
@@ -18,58 +17,10 @@ warnings.simplefilter('ignore', np.RankWarning)
 
 global tsps
 
-def getIntervals(y, maxgap=3, maxjump=2):
-
-    r = np.arange(y.size)
-    idx = np.isfinite(y)
-    r = r[idx]
-    intervals=[]
-    if len(r)==0:
-        return idx, intervals
-
-    beginning=r[0]
-    last=r[0]
-    for i in r[1:]:
-        if (i-last > maxgap) or (abs(y[i] - y[last]) > maxjump):
-            intervals.append((beginning, last))
-            beginning=i
-        last=i
-        if i==r[-1]:
-            intervals.append((beginning, last))
-    return idx, intervals
-
-def tecdPerLOS(stec, intervals, mask=None, eps=1, polynom_list=None, zero_mean=False):
-    global delta_eps, polynom_orders
-    tecd = np.nan * np.ones(stec.size)
-    if mask is None:
-        mask = np.zeros(stec.size, dtype=bool)
-    for ir, r in enumerate(intervals):
-        chunk = stec[r[0]+1 : r[1]-1]
-        idf = np.isfinite(chunk)
-        if np.sum(np.isfinite(chunk)) < (15 * (60/tsps)): 
-            err_list = np.array([])
-            continue
-        if np.sum(np.isnan(chunk)) > 0:
-            chunk = gu.cubicSplineFit(chunk, idf)
-        
-        res, err_list0, po  = gu.detrend(chunk, polynom_list=polynom_list, eps=eps, mask=mask[r[0]+1 : r[1]-1], polynomial_order=True)
-        if ir == 0 or len(err_list) == 0:
-            err_list = err_list0
-        else:
-            err_list = np.vstack((err_list, err_list0))
-        res[~idf] = np.nan
-        if zero_mean:
-            if abs(np.nansum(res)) < 5:
-                tecd[r[0]+1 : r[1]-1] = res
-        else:
-            tecd[r[0]+1 : r[1]-1] = res
-    
-    return tecd #, err_list
-
 def main(F, el_mask = None, odir = None):
     global tsps
     D = h5py.File(F, 'r')
-    el_mask = 30
+    el_mask = 20
     maxjump = 1.6 + (np.sqrt(tsps) - 1)
     eps = 1 * np.sqrt(30/tsps)
     polynom_list = np.arange(0,20)
@@ -218,18 +169,18 @@ def main(F, el_mask = None, odir = None):
                     rot = np.hstack((np.nan, (np.diff(vtec) / tsps)))
                     roti = scintillation.sigmaTEC(rot, 10) # 5 min
                     
-                    
                     h5file['vtec'][:, ids, irx] = vtec
                     h5file['roti'][:, ids, irx] = roti
                     h5file['el'][:, ids, irx] = elv
                     h5file['az'][:, ids, irx] = azm
                     
-                    
                     del idx, intervals, idel0, idel
                     
                 except Exception as e:
                     print (e)
+                
                 h5file.close()
+                
             del vtec, roti, elv, azm
         except Exception as e:
             print (e)
