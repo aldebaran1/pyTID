@@ -6,10 +6,10 @@ Created on Fri Nov 20 12:06:16 2020
 """
 
 import numpy as np
-import os
-import h5py
+import os, h5py
 from pyGnss import gnssUtils as gu
 from pyGnss import scintillation
+from pyGnss import pyGnss
 from datetime import datetime
 import warnings
 from argparse import ArgumentParser
@@ -191,6 +191,7 @@ def main(F, el_mask = None, odir = None):
                 elv = np.nan * np.ones(obstimes_unix.size, dtype=np.float16)
                 azm = np.nan * np.ones(obstimes_unix.size, dtype=np.float16)
                 roti = np.nan * np.ones(obstimes_unix.size, dtype=np.float16)
+                h5file = h5py.File(savefn, 'a')
                 
                 idsv = np.isin(sv_all[idrx], sv)
                 ids = sv_list[str(sv)]
@@ -205,27 +206,31 @@ def main(F, el_mask = None, odir = None):
                 idel = np.nan_to_num(elv) < el_mask
                 vtec[idel0] = np.nan
                 try:
-                    idx, intervals = getIntervals(vtec, maxgap=5, maxjump=maxjump)
-                    tecd = tecdPerLOS(vtec, intervals, polynom_list=polynom_list, eps=eps)
+                    idx, intervals = pyGnss.getIntervalsTEC(vtec, maxgap=5, maxjump=maxjump)
+                    tecd = pyGnss.tecdPerLOS(vtec, intervals, polynom_list=polynom_list, eps=eps)
                     tecd[idel] = np.nan
-                    
+                    h5file['res'][:, ids, irx] = tecd
+                    del tecd
+                except Exception as e:
+                    print (e)
+                try:
                     vtec[idel] = np.nan
                     rot = np.hstack((np.nan, (np.diff(vtec) / tsps)))
                     roti = scintillation.sigmaTEC(rot, 10) # 5 min
                     
-                    h5file = h5py.File(savefn, 'a')
+                    
                     h5file['vtec'][:, ids, irx] = vtec
                     h5file['roti'][:, ids, irx] = roti
-                    h5file['res'][:, ids, irx] = tecd
                     h5file['el'][:, ids, irx] = elv
                     h5file['az'][:, ids, irx] = azm
-                    h5file.close()
+                    
                     
                     del idx, intervals, idel0, idel
                     
                 except Exception as e:
                     print (e)
-            del vtec, roti, tecd, elv, azm
+                h5file.close()
+            del vtec, roti, elv, azm
         except Exception as e:
             print (e)
         
