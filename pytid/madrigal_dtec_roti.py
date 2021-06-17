@@ -83,7 +83,7 @@ def main(F, el_mask = None, odir = None):
     print ('Saving to: {}'.format(savefn))
     h5file = h5py.File(savefn, 'w')
     h5file.create_dataset('obstimes', data=obstimes_unix)
-    h5file.create_dataset('stec', data=TEC, compression='gzip', compression_opts=9)
+    h5file.create_dataset('vtec', data=TEC, compression='gzip', compression_opts=9)
     h5file.create_dataset('res', data=DTEC, compression='gzip', compression_opts=9)
     h5file.create_dataset('roti', data=ROTI, compression='gzip', compression_opts=9)
     h5file.create_dataset('az', data=AZ, compression='gzip', compression_opts=9)
