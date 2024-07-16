@@ -151,6 +151,7 @@ if __name__ == '__main__':
     p.add_argument('date')
     p.add_argument('rxlist', type = str, help = 'Rxlist as a .yaml file')
     p.add_argument('--elmask', type = int, default = 30)
+    p.add_argument('--window_min', type = int, default = 20)
     p.add_argument('--tlim', default = None, help = "start, stop times example 06:00 08:00", nargs=2, type=str)
     p.add_argument('-o', '--ofn', help = 'Output filename with or withou root folder.', default=None)
     p.add_argument('--ts', help = 'sampling rate', default = 30, type = int)
@@ -164,26 +165,13 @@ if __name__ == '__main__':
     P = p.parse_args()
     
     # GLOBAL VARIABLES
-    if P.cfg is None:
-        OBSFOLDER = '/media/smrak/gnss/obs/'
-        NAVFOLDER = '/media/smrak/gnss/nav/'
-        SBFOLDER = '/media/smrak/gnss/jplg/'
-        SAVEFOLDER = '/media/smrak/gnss/hdf/'
-        FIGUREFOLDER = '/media/smrak/gnss/plots/'
-        
-        OBSFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\obs\\'
-        NAVFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\'
-        SBFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\'
-        SAVEFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\hdf\\'
-        FIGUREFOLDER = 'C:\\Users\\smrak\\Google Drive\\BU\\Projects\\PhD\\dissertation\\python\\data\\testp\\'
+    yamlcfg = yaml.load(open(P.cfg, 'r'), Loader=yaml.SafeLoader)
+    OBSFOLDER = yamlcfg.get('obsfolder')
+    NAVFOLDER = yamlcfg.get('navfolder')
+    SBFOLDER = yamlcfg.get('sbfolder')
+    SAVEFOLDER = yamlcfg.get('savefolder')
+    FIGUREFOLDER = yamlcfg.get('figurefolder')
     
-    else:
-        yamlcfg = yaml.load(open(P.cfg, 'r'), Loader=yaml.SafeLoader)
-        OBSFOLDER = yamlcfg.get('obsfolder')
-        NAVFOLDER = yamlcfg.get('navfolder')
-        SBFOLDER = yamlcfg.get('sbfolder')
-        SAVEFOLDER = yamlcfg.get('savefolder')
-        FIGUREFOLDER = yamlcfg.get('figurefolder')
     date = parser.parse(P.date)
     year = date.year
     doy = date.strftime('%j')
@@ -192,6 +180,8 @@ if __name__ == '__main__':
     el_mask = P.elmask
     tlim = P.tlim
     Ts = P.ts
+    window_min = P.window_min
+    N_window = int(window_min * 60 / Ts)
     zero_mean = P.zeromean
     
     el_mask_in = (el_mask - 10) if (el_mask - 10) >= 8 else 8
@@ -233,8 +223,12 @@ if __name__ == '__main__':
         dhome = os.path.expanduser("~")
         dldir = os.path.join(dhome, 'pyGnss/utils/download_rnxn.py')
         subprocess.call("python {} {} {} --type sp3".format(dldir, P.date, nav_root), shell=True, timeout=50)
+    # If SP3 file is not yet available
+    if not os.path.exists(fsp3):
+    	fsp3 = fnav
+    	print ("We will use the navigation file because SP3 orbits are not available")
     # Break at the beginning 
-    assert os.path.exists(fsp3), "Cant find the sp3 file"
+    assert os.path.exists(fsp3), "Cant find any navigation file"
     
     # jplg file
     if P.use_satbias:
@@ -255,19 +249,19 @@ if __name__ == '__main__':
     
     # Savename
     if P.ofn is None:
-        sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(Ts) + 's_ra' 
+        sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(Ts) + 's' + str(window_min) + 'min_ra' 
         if P.roti:
             sfn += '_roti'
         savefn = os.path.join(SAVEFOLDER, sfn + '.h5')
     else:
         if os.path.isfile(P.ofn): 
-            assert os.file.splitext(P.ofn)[1] in ('.h5', '.hdf5')
+            assert os.path.splitext(P.ofn)[1] in ('.h5', '.hdf5')
             savefn = P.ofn
         elif os.path.isdir(P.ofn):
-            assert os.file.splitext(P.ofn)[1] in ('.h5', '.hdf5')
+            assert os.path.splitext(P.ofn)[1] in ('.h5', '.hdf5')
             savefn = os.path.join(P.ofn, os.path.split(rxlist)[1] + '_' + str(year) + '.h5')
         else:
-            assert os.file.splitext(P.ofn)[1] in ('.h5', '.hdf5')
+            assert os.path.splitext(P.ofn)[1] in ('.h5', '.hdf5')
             savefn = os.path.join(SAVEFOLDER, P.ofn)
     # Open log file is choosen so
     if P.log:
@@ -282,11 +276,11 @@ if __name__ == '__main__':
     svl = 32 #gr.load(fnc[0]).sv.values.shape[0]
     rxl = fnc.shape[0]
     # Polynomial list
-    polynom_list = np.arange(0,20)
+    #polynom_list = np.arange(0,20)
     # Stats
     # Polynomial orders list for stats
-    polynom_orders = []
-    delta_eps = []
+    # polynom_orders = []
+    # delta_eps = []
     # Output arrays
     if P.stec : slanttec = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     residuals = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
@@ -302,18 +296,18 @@ if __name__ == '__main__':
         try:
             svlist = gr.load(fnc).sv.values
             leap_seconds = gu.getLeapSeconds(fnav)
-            D = gr.load(fnc)
+            D = gr.load(fnc, use='G', interval=30)
             dt = np.array([np.datetime64(ttt) for ttt in D.time.values]).astype('datetime64[s]').astype(datetime) - timedelta(seconds=leap_seconds)
             tsps = np.diff(dt.astype('datetime64[s]'))[0].astype(int)
-            eps = 0.1 * np.sqrt(30/tsps)
-            VTEC, F, AER = pyGnss.getVTEC(fnc=fnc, fsp3=fsp3, jplg_file=None,
+            # eps = 0.1 * np.sqrt(30/tsps)
+            VTEC, F, AER = pyGnss.getVTEC(D, fsp3=fsp3, jplg_file=None,
                                      el_mask=el_mask_in, 
                                      return_mapping_function=True,
                                      return_aer=True, maxgap=1, maxjump=maxjump)
             if Ts == 1: 
                 SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
             # Remove inital recovery at time 00:00
-            VTEC[:2,:] = np.nan
+            VTEC[:1,:] = np.nan
             try:
                 rxmodel[irx] = gr.load(fnc).rxmodel
             except:
@@ -326,6 +320,7 @@ if __name__ == '__main__':
                     LOG.close()
             else:
                 print ('{}/{}'.format(irx+1, rxl))
+            print (D)
             for isv, sv in enumerate(svlist):
                 try:
                     if isv > 32: 
@@ -333,7 +328,7 @@ if __name__ == '__main__':
                     ixmask = np.nan_to_num(AER[:, isv, 1]) >= el_mask
                     
 #                    idx, intervals = getIntervals(VTEC[:, isv], maxgap=1, maxjump=maxjump)
-                    tecd = gu.detrend_running_mean(VTEC[:, isv], N=40)
+                    tecd = gu.detrend_running_mean(VTEC[:, isv], N=N_window)
                     tecd[~ixmask] = np.nan
                     tec = VTEC[:, isv]
                     tec[~ixmask] = np.nan

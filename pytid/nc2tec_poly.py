@@ -150,6 +150,7 @@ if __name__ == '__main__':
     p = ArgumentParser()
     p.add_argument('date')
     p.add_argument('rxlist', type = str, help = 'Rxlist as a .yaml file')
+    p.add_argument('--ebar', type = float, help = 'EPS for Poly detrending - default=30', default=30)
     p.add_argument('--elmask', type = int, default = 30)
     p.add_argument('--tlim', default = None, help = "start, stop times example 06:00 08:00", nargs=2, type=str)
     p.add_argument('-o', '--ofn', help = 'Output filename with or withou root folder.', default=None)
@@ -193,7 +194,8 @@ if __name__ == '__main__':
     tlim = P.tlim
     Ts = P.ts
     zero_mean = P.zeromean
-    
+    Ebar = P.ebar
+
     el_mask_in = (el_mask - 10) if (el_mask - 10) >= 8 else 8
     maxjump = 1.6 + (np.sqrt(Ts) - 1)
     
@@ -255,7 +257,7 @@ if __name__ == '__main__':
     
     # Savename
     if P.ofn is None:
-        sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(Ts) + 's' 
+        sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(Ts) + 's_Ebar' + str(Ebar) 
         if P.roti:
             sfn += '_roti'
         savefn = os.path.join(SAVEFOLDER, sfn + '.h5')
@@ -305,7 +307,7 @@ if __name__ == '__main__':
             D = gr.load(fnc)
             dt = np.array([np.datetime64(ttt) for ttt in D.time.values]).astype('datetime64[s]').astype(datetime) - timedelta(seconds=leap_seconds)
             tsps = np.diff(dt.astype('datetime64[s]'))[0].astype(int)
-            eps = 0.1 * np.sqrt(30/tsps)
+            eps = 0.1 * np.sqrt(Ebar/tsps)
             VTEC, F, AER = pyGnss.getVTEC(fnc=fnc, fsp3=fsp3, jplg_file=None,
                                      el_mask=el_mask_in, 
                                      return_mapping_function=True,
@@ -313,7 +315,7 @@ if __name__ == '__main__':
             if Ts == 1: 
                 SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
             # Remove inital recovery at time 00:00
-            VTEC[:2,:] = np.nan
+            VTEC[:1,:] = np.nan
             try:
                 rxmodel[irx] = gr.load(fnc).rxmodel
             except:
