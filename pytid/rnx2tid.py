@@ -47,7 +47,7 @@ def do_one(fnc, i, f, window_size, use='G'):
         D = gr.load(fnc, use = use, fast=0)
         if leap_seconds is None:
             try:
-                leap_seconds = gr.load(fnc).leap_seconds
+                leap_seconds = D.leap_seconds
             except:
                 pass
         svlist = D.sv.values
