@@ -221,12 +221,15 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
     flag = 0
     for irx, fnc in enumerate(fn_list):
         ts0 = datetime.now()
-        try:
-            rxpos[irx,:], rxname[irx], rxmodel[irx] = do_one(fnc, i=irx, f=savefn, window_size=window_size, use=use)
-            flag = 0
-        except:
+        
+        A = do_one(fnc, i=irx, f=savefn, window_size=window_size, use=use)
+        if A is None:
             flag = 1
-            pass
+        else:
+            rxpos[irx,:] = A[0]
+            rxname[irx] = A[1]
+            rxmodel[irx] = A[2]
+            flag = 0
         if log:
             with open(logfn, 'a') as logf:
                 if flag == 0:
@@ -236,7 +239,6 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
             logf.close()
         else:
             print (f"It took {datetime.now()-ts0} to complete {irx+1}/{fn_list.size}")
-        
     # putting the output file togather
     if log:
         with open(logfn, 'a') as logf:
