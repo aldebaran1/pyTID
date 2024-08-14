@@ -108,7 +108,7 @@ def do_one(fnc, i, f, window_size, use='G'):
         
     except Exception as e:
         print (f"Error in {fnc}; {e}")
-        return e
+        return str(e)
 
 def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
     global leap_seconds, fsp3, t, ts
