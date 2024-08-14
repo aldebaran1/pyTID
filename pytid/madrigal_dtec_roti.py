@@ -111,8 +111,8 @@ def main(F, el_mask = None, odir = None):
             D = h5py.File(F, 'r')
             idrx = np.isin(rxn_all, rx)
             svn = np.unique(sv_all[idrx])
-            rx_lat = D['Data/Table Layout'][idrx][0][-11]
-            rx_lon = D['Data/Table Layout'][idrx][0][-10]
+            rx_lat = D['Data/Table Layout'][idrx][0][-4]
+            rx_lon = D['Data/Table Layout'][idrx][0][-3]
             
             t = []
             vtec_tmp = []
