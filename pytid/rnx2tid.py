@@ -108,7 +108,7 @@ def do_one(fnc, i, f, window_size, use='G'):
         
     except Exception as e:
         print (f"Error in {fnc}; {e}")
-        return None
+        return e
 
 def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
     global leap_seconds, fsp3, t, ts
@@ -128,7 +128,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
     # Obs files => Path to
     assert os.path.exists(obsfolder), "Folder with observation files does not exists."
     nc_list = np.array(sorted(glob(obsfolder + '*')))
-    nc_rx_name, iux = np.unique(np.array([os.path.split(r)[1][:4] for r in nc_list]), return_index=1)
+    nc_rx_name, iux = np.unique(np.array([os.path.split(r)[1][:4].lower() for r in nc_list]), return_index=1)
     idn = np.isin(nc_rx_name, rxn)
     fn_list = nc_list[iux][idn]
     # Nav file
@@ -223,7 +223,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
         ts0 = datetime.now()
         
         A = do_one(fnc, i=irx, f=savefn, window_size=window_size, use=use)
-        if A is None:
+        if isinstance(A, str):
             flag = 1
         else:
             rxpos[irx,:] = A[0]
@@ -235,7 +235,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
                 if flag == 0:
                     logf.write(f"It took {datetime.now()-ts0} to complete {os.path.split(fnc)[1]}, {irx+1}/{fn_list.size}\n")
                 else:
-                    logf.write(f"Couldn't process {os.path.split(fnc)[1]}, {irx+1}/{fn_list.size}\n")
+                    logf.write(f"Couldn't process {os.path.split(fnc)[1]}, {irx+1}/{fn_list.size}, {A}\n")
             logf.close()
         else:
             print (f"It took {datetime.now()-ts0} to complete {irx+1}/{fn_list.size}")
