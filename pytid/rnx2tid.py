@@ -149,7 +149,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
     tl = t.size
     
     # Savename
-    sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(ts) + 's_ra_roti' 
+    sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(ts) + f's_{int(window_size)}ra_roti' 
     savefn = os.path.join(odir, sfn + '.h5')
     if not os.path.exists(odir):
         subprocess.call(f'mkdir -p "{odir}"', shell=True)
