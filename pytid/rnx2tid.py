@@ -67,7 +67,7 @@ def do_one(fnc, i, f, window_size, use='G'):
         STECcorr = STEC - DCB
         VTEC = STECcorr * F
         DTEC = pyGnss.getDTEC2(VTEC, eps=eps, tsps=tsps, polynom_list=polynom_list)
-        DTECra = pyGnss.getDTECra_from_VTEC(VTEC, N=N)
+        # DTECra = pyGnss.getDTECra_from_VTEC(VTEC, N=N)
         DTECsg = pyGnss.getDTECsg_from_VTEC(VTEC, N=N, order=1)
         SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
         try:
@@ -87,7 +87,7 @@ def do_one(fnc, i, f, window_size, use='G'):
                     ds['roti'][idt_original, isv, i] = ROTI[idt_reverse, j]
                     ds['snr'][idt_original, isv, i] = SNR[idt_reverse, j]
                     ds['res'][idt_original, isv, i] = DTEC[idt_reverse, j]
-                    ds['res_ra'][idt_original, isv, i] = DTECra[idt_reverse, j]
+                    # ds['res_ra'][idt_original, isv, i] = DTECra[idt_reverse, j]
                     ds['res_sg'][idt_original, isv, i] = DTECsg[idt_reverse, j]
                     ds['az'][idt_original, isv, i] = AER[:, j, 0][idt_reverse]
                     ds['el'][idt_original, isv, i] = AER[:, j, 1][idt_reverse]
@@ -98,12 +98,12 @@ def do_one(fnc, i, f, window_size, use='G'):
                 ds['roti'][:, isv_reverse, i] = ROTI[idt_reverse]
                 ds['snr'][:, isv_reverse, i] = SNR[idt_reverse]
                 ds['res'][:, isv_reverse, i] = DTEC[idt_reverse]
-                ds['res_ra'][:, isv_reverse, i] = DTECra[idt_reverse]
+                # ds['res_ra'][:, isv_reverse, i] = DTECra[idt_reverse]
                 ds['res_sg'][:, isv_reverse, i] = DTECsg[idt_reverse]
                 ds['az'][:, isv_reverse, i] = AER[:, :, 0][idt_reverse]
                 ds['el'][:, isv_reverse, i] = AER[:, :, 1][idt_reverse]
             ds.close()
-        del STEC, AER, ROTI, DCB, F, VTEC, STECcorr, DTEC, DTECra, DTECsg, SNR
+        del STEC, AER, ROTI, DCB, F, VTEC, STECcorr, DTEC, DTECsg, SNR
         return D.position_geodetic, D.filename[:4], rxmodel
         
     except Exception as e:
@@ -181,7 +181,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
     # Output arrays
     slanttec = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     residuals_poly = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
-    residuals_ra = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
+    # residuals_ra = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     residuals_sg = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     roti = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     snr = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
@@ -198,7 +198,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
     h5file = h5py.File(savefn, 'w')
     h5file.create_dataset('obstimes', data=th5)
     h5file.create_dataset('res', data=residuals_poly, compression='gzip', compression_opts=9)
-    h5file.create_dataset('res_ra', data=residuals_ra, compression='gzip', compression_opts=9)
+    # h5file.create_dataset('res_ra', data=residuals_ra, compression='gzip', compression_opts=9)
     h5file.create_dataset('res_sg', data=residuals_sg, compression='gzip', compression_opts=9)
     h5file.create_dataset('roti', data=roti, compression='gzip', compression_opts=9)
     h5file.create_dataset('stec', data=slanttec, compression='gzip', compression_opts=9)
@@ -212,7 +212,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
         logf.close()
     else:
         print (f"{savefn} created!")
-    del slanttec, residuals_poly, residuals_ra, residuals_sg, roti, snr, el, az
+    del slanttec, residuals_poly, residuals_sg, roti, snr, el, az
     
     rxpos = np.nan * np.zeros((rxl, 3), dtype=np.float16)
     rxname = np.zeros(rxl, dtype='<U5')
