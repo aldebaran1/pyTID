@@ -229,7 +229,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
     for irx, fnc in enumerate(fn_list):
         ts0 = datetime.now()
         
-        A = do_one(fnc, i=irx, f=savefn, window_size1=window_size1, window_size2=window_size2, use=use)
+        A = do_one(fnc, i=irx, f=savefn, window_size1=window_size1, window_size2=window_size2, window_size3=window_size3, use=use)
         if isinstance(A, str):
             flag = 1
         else:
