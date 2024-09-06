@@ -41,7 +41,7 @@ svall = np.array(['G01', 'G02', 'G03', 'G04', 'G05', 'G06', 'G07', 'G08',
                  'G17', 'G18', 'G19', 'G20', 'G21', 'G22', 'G23', 'G24',
                  'G25', 'G26', 'G27', 'G28', 'G29', 'G30', 'G31', 'G32'])
 
-def do_one(fnc, i, f, window_size1, window_size2, use='G'):
+def do_one(fnc, i, f, window_size1, window_size2, window_size3, use='G'):
     global leap_seconds, fsp3, polynom_list, E0, el_mask, t
     try:
         D = gr.load(fnc, use = use, fast=0)
@@ -56,6 +56,7 @@ def do_one(fnc, i, f, window_size1, window_size2, use='G'):
         maxjump = 1.6 + (np.sqrt(tsps) - 1)
         N1 = int((60/tsps)*window_size1)
         N2 = int((60/tsps)*window_size2)
+        N3 = int((60/tsps)*window_size3)
         NROTI = int((60/tsps) * 5) # ROTI over 5 min
         eps = E0 * np.sqrt(30/tsps)
         # TODO Correct GPST too UTC time when calling AER in pyGnss
@@ -70,6 +71,7 @@ def do_one(fnc, i, f, window_size1, window_size2, use='G'):
         DTEC = pyGnss.getDTEC2(VTEC, eps=eps, tsps=tsps, polynom_list=polynom_list)
         DTECsg1 = pyGnss.getDTECsg_from_VTEC(VTEC, N=N1, order=1)
         DTECsg2 = pyGnss.getDTECsg_from_VTEC(VTEC, N=N2, order=1)
+        DTECsg3 = pyGnss.getDTECsg_from_VTEC(VTEC, N=N3, order=1)
         SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
         try:
             rxmodel = D.rxmodel
@@ -90,6 +92,7 @@ def do_one(fnc, i, f, window_size1, window_size2, use='G'):
                     ds['res'][idt_original, isv, i] = DTEC[idt_reverse, j]
                     ds['res_sg1'][idt_original, isv, i] = DTECsg1[idt_reverse, j]
                     ds['res_sg2'][idt_original, isv, i] = DTECsg2[idt_reverse, j]
+                    ds['res_sg3'][idt_original, isv, i] = DTECsg3[idt_reverse, j]
                     ds['az'][idt_original, isv, i] = AER[:, j, 0][idt_reverse]
                     ds['el'][idt_original, isv, i] = AER[:, j, 1][idt_reverse]
                 ds.close()
@@ -101,17 +104,18 @@ def do_one(fnc, i, f, window_size1, window_size2, use='G'):
                 ds['res'][:, isv_reverse, i] = DTEC[idt_reverse]
                 ds['res_sg1'][:, isv_reverse, i] = DTECsg1[idt_reverse]
                 ds['res_sg2'][:, isv_reverse, i] = DTECsg2[idt_reverse]
+                ds['res_sg3'][:, isv_reverse, i] = DTECsg3[idt_reverse]
                 ds['az'][:, isv_reverse, i] = AER[:, :, 0][idt_reverse]
                 ds['el'][:, isv_reverse, i] = AER[:, :, 1][idt_reverse]
             ds.close()
-        del STEC, AER, ROTI, DCB, F, VTEC, STECcorr, DTEC, DTECsg1, DTECsg2, SNR
+        del STEC, AER, ROTI, DCB, F, VTEC, STECcorr, DTEC, DTECsg1, DTECsg2, DTECsg3,SNR
         return D.position_geodetic, D.filename[:4], rxmodel
         
     except Exception as e:
         print (f"Error in {fnc}; {e}")
         return str(e)
 
-def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, window_size2, log):
+def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, window_size2, window_size3, log):
     global leap_seconds, fsp3, t, ts
     assert os.path.exists(obsfolder)
     assert os.path.exists(navfolder)
@@ -150,7 +154,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
     tl = t.size
     
     # Savename
-    sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(ts) + f's_{int(window_size1)}min_{int(window_size2)}min_roti' 
+    sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(ts) + f's_{int(window_size1)}min_{int(window_size2)}min_{int(window_size3)}min_roti' 
     savefn = os.path.join(odir, sfn + '.h5')
     if not os.path.exists(odir):
         subprocess.call(f'mkdir -p "{odir}"', shell=True)
@@ -184,6 +188,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
     residuals_poly = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     residuals_sg1 = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     residuals_sg2 = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
+    residuals_sg3 = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     roti = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     snr = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
     el = np.nan * np.zeros((tl, svl, rxl), dtype=np.float16)
@@ -201,6 +206,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
     h5file.create_dataset('res', data=residuals_poly, compression='gzip', compression_opts=9)
     h5file.create_dataset('res_sg1', data=residuals_sg1, compression='gzip', compression_opts=9)
     h5file.create_dataset('res_sg2', data=residuals_sg2, compression='gzip', compression_opts=9)
+    h5file.create_dataset('res_sg3', data=residuals_sg3, compression='gzip', compression_opts=9)
     h5file.create_dataset('roti', data=roti, compression='gzip', compression_opts=9)
     h5file.create_dataset('stec', data=slanttec, compression='gzip', compression_opts=9)
     h5file.create_dataset('snr', data=snr, compression='gzip', compression_opts=9)
@@ -213,7 +219,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
         logf.close()
     else:
         print (f"{savefn} created!")
-    del slanttec, residuals_poly, residuals_sg1, residuals_sg2, roti, snr, el, az
+    del slanttec, residuals_poly, residuals_sg1, residuals_sg2, residuals_sg3, roti, snr, el, az
     
     rxpos = np.nan * np.zeros((rxl, 3), dtype=np.float16)
     rxname = np.zeros(rxl, dtype='<U5')
@@ -260,6 +266,7 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
     h5file.attrs[u'el_mask'] = el_mask
     h5file.attrs[u'window_size1'] = window_size1
     h5file.attrs[u'window_size2'] = window_size2
+    h5file.attrs[u'window_size3'] = window_size3
     h5file.attrs[u'e0'] = E0
     h5file.attrs[u'leap_seconds'] = leap_seconds
     h5file.close()
@@ -283,8 +290,9 @@ if __name__ == '__main__':
     p.add_argument('--obs', help = 'Directory with Rinex files', default=None)
     p.add_argument('--nav', help = 'Directory with Navigation SP3', default=None)
     p.add_argument('--ts', help = 'sampling rate', default = 30, type = int)
-    p.add_argument('--window_size1', help = 'FIlter window in minutes. Default=30 min', default = 30, type = int)
-    p.add_argument('--window_size2', help = 'FIlter window in minutes. Default=60 min', default = 60, type = int)
+    p.add_argument('--window_size1', help = 'Filter window in minutes. Default=30 min', default = 30, type = int)
+    p.add_argument('--window_size2', help = 'Filter window in minutes. Default=60 min', default = 60, type = int)
+    p.add_argument('--window_size3', help = 'Filter window in minutes. Default=90 min', default = 90, type = int)
     p.add_argument('--e0', help = 'Polyinomial breakout constant; E0 sqrt(30/ts). Default = 0.1', default = 0.1, type = float)
     p.add_argument('--porder', help = 'Number of polynomials. Default=20', default = 20, type = int)
     p.add_argument('--log', help = 'If you prefer to make a .log file?', action = 'store_true')
@@ -299,4 +307,5 @@ if __name__ == '__main__':
     navfolder = P.nav if P.nav is not None else os.path.split(P.rxlist)[0] + os.sep
     
     main_gps(date=P.date, rxlist=P.rxlist, obsfolder=obsfolder, navfolder=navfolder, 
-             window_size1=P.window_size1, window_size2=P.window_size2, tlim=P.tlim, odir=P.odir, log=P.log)
+             window_size1=P.window_size1, window_size2=P.window_size2, window_size3=P.window_size3,
+             tlim=P.tlim, odir=P.odir, log=P.log)
