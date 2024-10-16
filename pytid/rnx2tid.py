@@ -65,10 +65,15 @@ def do_one(fnc, i, f, window_size, use='G'):
         DCB = pyGnss.getDCBfromSTEC(STEC, AER, el_mask=el_mask)
         F = pyGnss.getMappingFunction(AER[:,:,1], 350)
         STECcorr = STEC - DCB
-        VTEC = STECcorr * F
-        DTEC = pyGnss.getDTEC2(VTEC, eps=eps, tsps=tsps, polynom_list=polynom_list)
-        # DTECra = pyGnss.getDTECra_from_VTEC(VTEC, N=N)
-        DTECsg = pyGnss.getDTECsg_from_VTEC(VTEC, N=N, order=1)
+        if os.path.split(fsp3)[1][:4] == 'brdc':
+            DTEC = pyGnss.getDTEC2(STECcorr, eps=eps, tsps=tsps, polynom_list=polynom_list)
+            #DTECra = pyGnss.getDTECra_from_VTEC(VTEC, N=N)
+            DTECsg = pyGnss.getDTECsg_from_VTEC(STECorr, N=N, order=1)
+        else:
+            VTEC = STECcorr * F
+            DTEC = pyGnss.getDTEC2(VTEC, eps=eps, tsps=tsps, polynom_list=polynom_list)
+            DTECsg = pyGnss.getDTECsg_from_VTEC(VTEC, N=N, order=1)
+
         SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=350)
         try:
             rxmodel = D.rxmodel
@@ -121,7 +126,13 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
     year = date.year
     doy = date.strftime('%j')
     use = 'G'
-    
+    yy = date.strftime('%y')
+
+    gps_ts = (date - datetime(1980, 1, 6)).total_seconds()
+    wwww = int(gps_ts / 60 /60 / 24 / 7)
+    weekday = (date.weekday() + 1 ) % 7
+    wwwwd = str(wwww) + str(weekday)
+
     # Filter input files
     stream = yaml.safe_load(open(rxlist, 'r'))
     rxn = np.array(stream.get('rx'))
@@ -132,7 +143,18 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size, log):
     idn = np.isin(nc_rx_name, rxn)
     fn_list = nc_list[iux][idn]
     # Nav file
-    fsp3 = os.path.join(navfolder, 'igs' + str(doy) + '0.' + str(year)[2:] + 'sp3')
+    #fsp3 = os.path.join(navfolder, 'igs' + str(doy) + '0.' + str(year)[2:] + 'sp3')
+    fsp3 = glob(navfolder + os.sep + f"GFZ*{doy}*SP3")[0] if len(glob(navfolder + f"GFZ*{doy}*SP3")) > 0 else None
+    if fsp3 is None:
+        fsp3 = glob(navfolder + os.sep + f"IGS*{doy}*SP3")[0] if len(glob(navfolder + f"IGS*{doy}*SP3")) > 0 else None
+    if fsp3 is None:
+        fsp3 = glob(navfolder + os.sep + f"igs*{doy}*sp3")[0] if len(glob(navfolder + f"igs*{doy}*sp3")) > 0 else None
+    if fsp3 is None:
+        fsp3 = glob(navfolder + os.sep + f"gfz*{wwwwd}.sp3")[0] if len(glob(navfolder + f"gfz*{wwwwd}.sp3")) > 0 else None
+    if fsp3 is None:
+        fsp3 = glob(navfolder + os.sep + f"brdc*{doy}*{yy}n")[0] if len(glob(navfolder + f"brdc*{doy}*{yy}n")) > 0 else None    
+    if fsp3 is None:
+        print (f"Navigation file wasn't found. Sepcified nav_file {nav_file}")
     # Break at the beginning 
     assert os.path.exists(fsp3), "Cant find the sp3 file"
     
