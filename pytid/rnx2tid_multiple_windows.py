@@ -223,8 +223,8 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
     nc_lista = np.array(sorted(glob(obsfolder + f'{yeara}{os.sep}{mmdda}{os.sep}' +  '*crx') + glob(obsfolder + f'{yeara}{os.sep}{mmdda}{os.sep}' + '*rnx') + glob(obsfolder + f'{yeara}{os.sep}{mmdda}{os.sep}' + '*.*d') + glob(obsfolder + f'{yeara}{os.sep}{mmdda}{os.sep}' + '*.*o')))
     nc_listz = np.array(sorted(glob(obsfolder + f'{yearz}{os.sep}{mmddz}{os.sep}' +  '*crx') + glob(obsfolder + f'{yearz}{os.sep}{mmddz}{os.sep}' + '*rnx') + glob(obsfolder + f'{yearz}{os.sep}{mmddz}{os.sep}' + '*.*d') + glob(obsfolder + f'{yearz}{os.sep}{mmddz}{os.sep}' + '*.*o')))
     nc_rx_name, iux = np.unique(np.array([os.path.split(r)[1][:4].lower() for r in nc_list]), return_index=1)
-    nc_rx_namea = np.array([os.path.split(r)[1][:4].lower() for r in nc_lista])
-    nc_rx_namez = np.array([os.path.split(r)[1][:4].lower() for r in nc_lista])
+    nc_rx_namea, iua = np.unique([os.path.split(r)[1][:4].lower() for r in nc_lista], return_index=1)
+    nc_rx_namez, iuz = np.unique([os.path.split(r)[1][:4].lower() for r in nc_lista], return_index=1)
     
     idn = np.isin(nc_rx_name, rxn)
     fn_list = nc_list[iux][idn]
@@ -233,10 +233,10 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
         tmp = [nc_list[i]]
         ida = np.isin(nc_rx_namea, nc_rx)
         if np.sum(ida) > 0:
-            tmp = list(nc_lista[ida]) + tmp 
+            tmp = list(nc_lista[iua][ida]) + tmp 
         idz = np.isin(nc_rx_namez, nc_rx)
         if np.sum(ida) > 0:
-            tmp = tmp + list(nc_listz[idz])
+            tmp = tmp + list(nc_listz[iuz][idz])
         nc_list_all[i] = tmp
     # Nav file
     fsp3 = get_nav_files(navfolder, t)
@@ -245,7 +245,10 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
     assert not (fsp3==None).all(), "Cant find the sp3 file"
     assert (np.array([os.path.exists(f) for f in fsp3])==1).all(), "Cant find the sp3 file in the directory"
     
-    
+#    print (rxn)
+#    print (nc_list)
+#    print (fn_list)
+#    print (nc_list_all)    
     # Savename
     sfn = str(year) + '_' + tlim[0].strftime('%m%dT%H%M') + '-' + tlim[1].strftime('%m%dT%H%M') + '_' + os.path.split(rxlist)[1] + '_' + str(el_mask) +'el_' + str(ts) + f's_{int(window_size1)}min_{int(window_size2)}min_{int(window_size3)}min_roti' 
     savefn = os.path.join(odir, sfn + '.h5')
@@ -318,9 +321,10 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
     rxname = np.zeros(rxl, dtype='<U5')
     rxmodel = np.zeros(rxl, dtype='<U35')
     leap_seconds = 0
-    flag = 0
+    
     for irx, fnc in enumerate(nc_list_all):
         ts0 = datetime.now()
+        flag = 0
 
         A = do_one(fnc, i=irx, f=savefn, window_size1=window_size1, window_size2=window_size2, window_size3=window_size3)
         if isinstance(A, str):
@@ -333,9 +337,9 @@ def main_gps(date, obsfolder, navfolder, rxlist, tlim, odir, window_size1, windo
         if log:
             with open(logfn, 'a') as logf:
                 if flag == 0:
-                    logf.write(f"It took {datetime.now()-ts0} to complete {os.path.split(fnc)[1]}, {irx+1}/{fn_list.size}\n")
+                    logf.write(f"It took {datetime.now()-ts0} to complete {os.path.split(fnc[0])[1]}, {irx+1}/{fn_list.size}\n")
                 else:
-                    logf.write(f"Couldn't process {os.path.split(fnc)[1]}, {irx+1}/{fn_list.size}, {A}\n")
+                    logf.write(f"Couldn't process {os.path.split(fnc[0])[1]}, {irx+1}/{fn_list.size}, {A}\n")
             logf.close()
         else:
             print (f"It took {datetime.now()-ts0} to complete {irx+1}/{fn_list.size}")
