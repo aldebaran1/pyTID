@@ -11,11 +11,19 @@ from dateutil import parser
 import numpy as np
 from scipy import ndimage
 from gpstec import gpstec
-from cartomap import geogmap as gm
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
+try:
+    from cartomap import geogmap as gm
+except:
+    pass
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
+try:
+    import cartopy.crs as ccrs
+except:
+    pass
 from pyGnss import pyGnss #
-from pymap3d import aer2geodetic
 from astropy.convolution import Gaussian2DKernel, convolve
 
 keys = {'poly': 'res', 'ra': 'res_ra', 'sg': 'res_sg', 'sg1': 'res_sg1', 'sg2': 'res_sg2', 'sg3': 'res_sg3',}
@@ -170,7 +178,6 @@ if __name__ == '__main__':
     p.add_argument('-r', '--resolution', default=0.5, type=float, help='Default is 0.5') 
     p.add_argument('--save', action='store_true', help='Save to file?')
     
-
     P = p.parse_args()
     altkm = P.altkm
     clim = P.clim
@@ -308,19 +315,7 @@ if __name__ == '__main__':
             else:
                 window = TID.attrs['window_size']
             title = f"{dt[i]}, alt = {altkm} km, window = {mode}-{window} min, res={P.resolution}, N={filter_size}, $\sigma_N$={filter_sigma}"
-        fig, ax = gm.plotCartoMap(figsize=figure_size, projection=projection, #title=dt[i],
-                          terrain=terrain, states=states, border_color=border_color,
-                          background_color=background_color,
-                          lonlim=lonlim,latlim=latlim,
-                          title=title,
-                          meridians=meridians, parallels=parallels,
-                          grid_linewidth=grid_linewidth,grid_color=grid_color,
-                          apex=apex, mlon_cs=mlon_cs, date=dt[i],
-                          mlon_levels=mag_meridians, mlat_levels=mag_parallels,
-                          mlon_labels=False, mlat_labels=False, mgrid_style='--',
-                          mlon_colors='w', mlat_colors='w', 
-                          terminator=terminator, terminator_altkm=terminator_altkm,
-                          )
+        
         if fntec is not None:
             assert os.path.exists(fntec)
             itec0 = abs(tecdt - dt[i]).argmin()
@@ -366,34 +361,51 @@ if __name__ == '__main__':
         xg, yg, im = ImageNew(glon, glat, tid, lonlim=lonlim, latlim=latlim, 
                       res=P.resolution, filter_type=filter_type, sigma=filter_sigma,
                       filter_size=filter_size)
-        pcmim = ax.pcolormesh(xg, yg, im, cmap=cmap, 
-                   vmin = clim[0], vmax = clim[1],
-                   transform=ccrs.PlateCarree())
-        posn = ax.get_position()
-        cax = fig.add_axes([posn.x0+posn.width+0.01, posn.y0, 0.02, posn.height])
-        fig.colorbar(pcmim, cax=cax, label=label)
-                
-        if not os.path.exists(odir):
-            import subprocess
-            if platform.system() in ('Linux', 'Darwin'): 
-                subprocess.call('mkdir -p {}'.format(odir), shell=True, timeout=2)
-            elif platform.system() == 'Windows':
-                subprocess.call('mkdir "{}"'.format(odir), shell=True, timeout=2)
-        tit = dt[i].strftime('%m%d_%H%M')
-        ofn = odir+str(tit)+'.png'
-        plt.savefig(ofn, dpi=50)
-        plt.close()
         
         if P.save:
             xfile = os.path.split(odir)[0] + os.sep + f'grid_{mode}_{window}min_' + \
                 dt[i].strftime("%Y%m%d%H%M%S") + '_' + os.path.split(gpsfn)[1]
             X = h5py.File(xfile, 'w')
             X.create_dataset('time', data=dt[i].replace(tzinfo=timezone.utc).timestamp())
-            X.create_dataset('glon', data=xg)
-            X.create_dataset('glat', data=yg)
-            X.create_dataset('tid', data=im)
+            X.create_dataset('glon', data=xg, compression="gzip",chunks=True, compression_opts=9)
+            X.create_dataset('glat', data=yg, compression="gzip",chunks=True, compression_opts=9)
+            X.create_dataset('tid', data=im, compression="gzip",chunks=True, compression_opts=9)
             X.attrs[u'resolution'] = P.resolution
             X.attrs[u'filter_type'] = filter_type
             X.attrs[u'filter_size'] = filter_size
             X.attrs[u'filter_sigma'] = filter_sigma
             X.close()
+        
+        else:
+            fig, ax = gm.plotCartoMap(figsize=figure_size, projection=projection, #title=dt[i],
+                              terrain=terrain, states=states, border_color=border_color,
+                              background_color=background_color,
+                              lonlim=lonlim,latlim=latlim,
+                              title=title,
+                              meridians=meridians, parallels=parallels,
+                              grid_linewidth=grid_linewidth,grid_color=grid_color,
+                              apex=apex, mlon_cs=mlon_cs, date=dt[i],
+                              mlon_levels=mag_meridians, mlat_levels=mag_parallels,
+                              mlon_labels=False, mlat_labels=False, mgrid_style='--',
+                              mlon_colors='w', mlat_colors='w', 
+                              terminator=terminator, terminator_altkm=terminator_altkm,
+                              )
+            pcmim = ax.pcolormesh(xg, yg, im, cmap=cmap, 
+                       vmin = clim[0], vmax = clim[1],
+                       transform=ccrs.PlateCarree())
+            posn = ax.get_position()
+            cax = fig.add_axes([posn.x0+posn.width+0.01, posn.y0, 0.02, posn.height])
+            fig.colorbar(pcmim, cax=cax, label=label)
+            
+            if not os.path.exists(odir):
+                import subprocess
+                if platform.system() in ('Linux', 'Darwin'): 
+                    subprocess.call('mkdir -p {}'.format(odir), shell=True, timeout=2)
+                elif platform.system() == 'Windows':
+                    subprocess.call('mkdir "{}"'.format(odir), shell=True, timeout=2)
+            tit = dt[i].strftime('%m%d_%H%M')
+            ofn = odir+str(tit)+'.png'
+            plt.savefig(ofn, dpi=50)
+            plt.close()
+        
+        
