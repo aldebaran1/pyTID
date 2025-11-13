@@ -27,6 +27,9 @@ except:
 from pyGnss import pyGnss #
 from astropy.convolution import Gaussian2DKernel, convolve
 
+import warnings
+warnings.filterwarnings("ignore")
+
 keys = {'poly': 'res', 'ra': 'res_ra', 'sg': 'res_sg', 'sg1': 'res_sg1', 'sg2': 'res_sg2', 'sg3': 'res_sg3',}
 
 def getNeighbours(image,i,j,N=3):
