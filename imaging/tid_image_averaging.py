@@ -178,6 +178,7 @@ if __name__ == '__main__':
     p.add_argument('--elmask', type=int, default=None, help='Default is None')
     p.add_argument('-r', '--resolution', default=0.5, type=float, help='Default is 0.5') 
     p.add_argument('--save', action='store_true', help='Save to file?')
+    p.add_argument('-v', '--verbose', action='store_true', help='Verbose')
     
     P = p.parse_args()
     altkm = P.altkm
@@ -304,7 +305,8 @@ if __name__ == '__main__':
     
     j = 0
     for i in iterate:
-        print ('Plotting figure {}/{}'.format(j+1, iterate.shape[0]))
+        if P.verbose:
+            print ('Plotting figure {}/{}'.format(j+1, iterate.shape[0]))
         j += 1
         TID = h5py.File(gpsfn, 'r')
         # Get a map
