@@ -11,6 +11,7 @@ from dateutil import parser
 import numpy as np
 from scipy import ndimage
 from gpstec import gpstec
+import subprocess
 try:
     from cartomap import geogmap as gm
 except:
@@ -362,7 +363,14 @@ if __name__ == '__main__':
                       res=P.resolution, filter_type=filter_type, sigma=filter_sigma,
                       filter_size=filter_size)
         
+        if not os.path.exists(odir):
+            if platform.system() in ('Linux', 'Darwin'): 
+                subprocess.call('mkdir -p {}'.format(odir), shell=True, timeout=2)
+            elif platform.system() == 'Windows':
+                subprocess.call('mkdir "{}"'.format(odir), shell=True, timeout=2)
+        
         if P.save:
+            
             xfile = os.path.split(odir)[0] + os.sep + f'grid_{mode}_{window}min_' + \
                 dt[i].strftime("%Y%m%d%H%M%S") + '_' + os.path.split(gpsfn)[1]
             X = h5py.File(xfile, 'w')
@@ -375,6 +383,7 @@ if __name__ == '__main__':
             X.attrs[u'filter_size'] = filter_size
             X.attrs[u'filter_sigma'] = filter_sigma
             X.close()
+            
         
         else:
             fig, ax = gm.plotCartoMap(figsize=figure_size, projection=projection, #title=dt[i],
@@ -398,11 +407,7 @@ if __name__ == '__main__':
             fig.colorbar(pcmim, cax=cax, label=label)
             
             if not os.path.exists(odir):
-                import subprocess
-                if platform.system() in ('Linux', 'Darwin'): 
-                    subprocess.call('mkdir -p {}'.format(odir), shell=True, timeout=2)
-                elif platform.system() == 'Windows':
-                    subprocess.call('mkdir "{}"'.format(odir), shell=True, timeout=2)
+ 
             tit = dt[i].strftime('%m%d_%H%M')
             ofn = odir+str(tit)+'.png'
             plt.savefig(ofn, dpi=50)
