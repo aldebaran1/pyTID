@@ -406,8 +406,6 @@ if __name__ == '__main__':
             cax = fig.add_axes([posn.x0+posn.width+0.01, posn.y0, 0.02, posn.height])
             fig.colorbar(pcmim, cax=cax, label=label)
             
-            if not os.path.exists(odir):
- 
             tit = dt[i].strftime('%m%d_%H%M')
             ofn = odir+str(tit)+'.png'
             plt.savefig(ofn, dpi=50)
