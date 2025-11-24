@@ -67,7 +67,7 @@ def do_one(fnc, fsp3, t, ts, odir, el_mask=30,
            # roti_cutoff=0.5, snr_cutoff=30, Hipp=450, use='G',
            # window_size0=5, window_size1=30, window_size2=60, window_size3=90
            ):
-    sfn = f"{odir}{os.sep}{os.path.split(fnc[0])[1][:4].lower()}_{t[0].astype(datetime).strftime('%Y%m%dT%H%M')}_{t[-1].astype(datetime).strftime('%Y%m%dT%H%M')}.nc"
+    sfn = f"{odir}{os.path.split(fnc[0])[1][:4].lower()}_{t[0].astype(datetime).strftime('%Y%m%dT%H%M')}_{t[-1].astype(datetime).strftime('%Y%m%dT%H%M')}.nc"
     if os.path.exists(sfn):
          return
     try:
@@ -218,6 +218,7 @@ def main(date, idir, ndir, odir, rxlist, el_mask, tlim, ts, j, v=False):
         args.append((nc_list_all[i], fsp3, t, ts, odir, el_mask))
     t0 = datetime.now()
     
+    odir += f"{mmdd}{os.sep}" 
     if not os.path.exists(odir):
         subprocess.call(f"mkdir -p {odir}", shell=True)
     with mp.Pool(processes=j) as pool:
