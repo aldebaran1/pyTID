@@ -212,15 +212,15 @@ def main(date, idir, ndir, odir, rxlist, el_mask, tlim, ts, j, v=False):
     # Break at the beginning 
     assert not (fsp3==None).all(), "Cant find the sp3 file"
     assert (np.array([os.path.exists(f) for f in fsp3])==1).all(), "Cant find the sp3 file in the directory"
-    # exit()
-    args = []
-    for i in range(nc_list_all.size):
-        args.append((nc_list_all[i], fsp3, t, ts, odir, el_mask))
-    t0 = datetime.now()
     
     odir += f"{mmdd}{os.sep}" 
     if not os.path.exists(odir):
         subprocess.call(f"mkdir -p {odir}", shell=True)
+        
+    args = []
+    for i in range(nc_list_all.size):
+        args.append((nc_list_all[i], fsp3, t, ts, odir, el_mask))
+    t0 = datetime.now()
     with mp.Pool(processes=j) as pool:
             # Map the square_number function to each number in the list
             # The pool will distribute these calls across its processes
