@@ -31,7 +31,19 @@ window_size3 = 90
 
 use = ('G', 'E', 'C')
 
-def get_nav_files(navfolder, times):
+def get_sat_bias(ionexfolder, date):
+    year = date.year
+    doy = date.strftime("%j")
+    yy = date.strftime("%y")
+        # ionex = get_ioniex_files(date)
+    ionex_files = sorted(glob(ionexfolder+ f"*{year}{doy}*.INX") + glob(ionexfolder+ f"*{doy}0.{yy}i"))
+    if len(ionex_files) > 0:
+        sat_bias = pyGnss.getSatBias(ionex_files[0])
+    else:
+        sat_bias=None
+    return sat_bias
+
+def get_nav_files(navfolder, times, v):
     if not isinstance(times.dtype, datetime):
         times = times.astype('datetime64[s]').astype(datetime)
     days = np.unique([date.date() for date in times]).astype('datetime64[s]').astype(datetime)
@@ -55,7 +67,9 @@ def get_nav_files(navfolder, times):
         if tmp is None:
             tmp = glob(navfolder + os.sep + f"brdc*{doy}*{yy}n")[0] if len(glob(navfolder + f"brdc*{doy}*{yy}n")) > 0 else None    
         if tmp is None:
-            print (f"Navigation file wasn't found. Sepcified nav_file {navfolder}")
+            if v:
+                print (f"Navigation file wasn't found. Sepcified nav_file {navfolder}")
+            pass
         if i == 0:
             fsp3 = tmp
         else:
@@ -63,7 +77,7 @@ def get_nav_files(navfolder, times):
             
     return fsp3
 
-def do_one(fnc, fsp3, t, ts, odir, el_mask=30,
+def do_one(fnc, fsp3, t, ts, odir, sat_bias, el_mask=30,
            # roti_cutoff=0.5, snr_cutoff=30, Hipp=450, use='G',
            # window_size0=5, window_size1=30, window_size2=60, window_size3=90
            ):
@@ -90,6 +104,14 @@ def do_one(fnc, fsp3, t, ts, odir, el_mask=30,
         tsps = D.interval
         if np.isnan(tsps):
             tsps = int(np.nanmedian(np.diff(D.time)) / np.timedelta64(1, 's'))
+        
+        svlist = D.sv.values
+        dcb0 = np.zeros(svlist.size)
+        sat_bias_keys = sat_bias.keys()
+        for isv, sv in enumerate(svlist):
+            if sv in sat_bias_keys:
+                dcb0[isv] = sat_bias[sv]
+                
         maxjump = 1.6 + (np.sqrt(tsps) - 1)
         N0 = int((60/tsps)*window_size0)
         N1 = int((60/tsps)*window_size1)
@@ -104,11 +126,11 @@ def do_one(fnc, fsp3, t, ts, odir, el_mask=30,
                                    )
         ROTI = pyGnss.getROTI(STEC, ts=tsps, N = NROTI)
         SNR = pyGnss.getCNR(D, fsp3=fsp3, el_mask=el_mask, H=Hipp)
-        DCB = pyGnss.getDCBfromSTEC(STEC, AER, el_mask=5, ROTI=ROTI, roti_cutoff=roti_cutoff, SNR=SNR, snr_cutoff=roti_cutoff)
+        DCB = pyGnss.getDCBfromSTEC(STEC, AER, sb=-dcb0, el_mask=5, ROTI=ROTI, roti_cutoff=roti_cutoff, SNR=SNR, snr_cutoff=roti_cutoff)
         F = pyGnss.getMappingFunction(AER[:,:,1], Hipp)
         STECcorr = STEC - DCB
         VTEC = STECcorr * F
-        VTEC[TEC_sigma > 8] = np.nan
+        # VTEC[TEC_sigma > 8] = np.nan
         D['stec'] = (("time", "sv"), STECcorr)
         O = D['stec'].to_dataset()
         O['tec_sigma'] = (("time", "sv"), TEC_sigma)
@@ -157,7 +179,7 @@ def do_one(fnc, fsp3, t, ts, odir, el_mask=30,
     
     return
     
-def main(date, idir, ndir, odir, rxlist, el_mask, tlim, ts, j, v=False):
+def main(date, idir, ndir, odir, rxlist, el_mask, tlim, ts, j, ionexfolder=None, v=False):
     date = parser.parse(date)
     year = date.year
     yeara = (date - timedelta(days=1)).year
@@ -208,18 +230,23 @@ def main(date, idir, ndir, odir, rxlist, el_mask, tlim, ts, j, v=False):
         delta_t = timedelta(seconds=0)
     t = np.arange(t0-delta_t, t1+delta_t, ts, dtype='datetime64[s]') #datetime64[s]
     
-    fsp3 = get_nav_files(ndir, t)
+    fsp3 = get_nav_files(ndir, t, v)
     # Break at the beginning 
     assert not (fsp3==None).all(), "Cant find the sp3 file"
     assert (np.array([os.path.exists(f) for f in fsp3])==1).all(), "Cant find the sp3 file in the directory"
     
+    if ionexfolder is not None:
+        sat_bias = get_sat_bias(ionexfolder, date)
+    else:
+         sat_bias = None   
+            
     odir += f"{mmdd}{os.sep}" 
     if not os.path.exists(odir):
         subprocess.call(f"mkdir -p {odir}", shell=True)
         
     args = []
     for i in range(nc_list_all.size):
-        args.append((nc_list_all[i], fsp3, t, ts, odir, el_mask))
+        args.append((nc_list_all[i], fsp3, t, ts, odir, sat_bias, el_mask))
     t0 = datetime.now()
     with mp.Pool(processes=j) as pool:
             # Map the square_number function to each number in the list
@@ -236,6 +263,7 @@ if __name__ == "__main__":
     p.add_argument('ndir', help = 'Rinex Navigation files Dirctory')
     p.add_argument('odir', help = 'Output filename with or withou root folder.')
     
+    p.add_argument('--ionex', help = 'Ionex folder for DCB initial conditions')
     p.add_argument('--rxlist', type = str, help = 'Rxlist as a .yaml file', default=None)
     
     p.add_argument('--elmask', help="Elevation mask. Default=10", type = int, default = 10)
@@ -246,74 +274,5 @@ if __name__ == "__main__":
     p.add_argument('-v', help = 'Verbose', action = 'store_true')
     P = p.parse_args()
     
-    main(date=P.date, idir=P.idir, ndir=P.ndir, odir=P.odir, rxlist=P.rxlist, 
+    main(date=P.date, idir=P.idir, ndir=P.ndir, odir=P.odir, ionexfolder=P.ionex, rxlist=P.rxlist, 
          tlim=P.tlim, el_mask=P.elmask, ts=P.ts, j=P.j, v=P.v)
-
-
-    # root = '/Users/mraks1/Library/CloudStorage/Box-Box/Projects/TID-GW/RINEX/'
-    # obsfolder = root
-    # navfolder = root 
-    # odir = '/Volumes/SD-1/test/'
-    # rxlist = obsfolder + f'{os.sep}{year}{os.sep}{mmdd}{os.sep}rxlist1227.2020.h5.yaml'
-    # tlim = None
-    # ts = 30
-    
-    # el_mask = 20
-    # E0 = 0.1
-    # polynom_list = np.arange(20)
-    # log = 0
-    
-    
-    # Filter input files
-    # stream = yaml.safe_load(open(rxlist, 'r'))
-    # rxn = np.array(stream.get('rx'))
-    # Obs files => Path to
-    # assert os.path.exists(obsfolder), "Folder with observation files does not exists."
-    # nc_list = np.array(sorted(glob(obsfolder + f'{year}{os.sep}{mmdd}{os.sep}' +  '*crx') + glob(obsfolder + f'{year}{os.sep}{mmdd}{os.sep}' + '*rnx') + glob(obsfolder + f'{year}{os.sep}{mmdd}{os.sep}' + '*.*d') + glob(obsfolder + f'{year}{os.sep}{mmdd}{os.sep}' + '*.*o')))
-    # nc_lista = np.array(sorted(glob(obsfolder + f'{yeara}{os.sep}{mmdda}{os.sep}' +  '*crx') + glob(obsfolder + f'{yeara}{os.sep}{mmdda}{os.sep}' + '*rnx') + glob(obsfolder + f'{yeara}{os.sep}{mmdda}{os.sep}' + '*.*d') + glob(obsfolder + f'{yeara}{os.sep}{mmdda}{os.sep}' + '*.*o')))
-    # nc_listz = np.array(sorted(glob(obsfolder + f'{yearz}{os.sep}{mmddz}{os.sep}' +  '*crx') + glob(obsfolder + f'{yearz}{os.sep}{mmddz}{os.sep}' + '*rnx') + glob(obsfolder + f'{yearz}{os.sep}{mmddz}{os.sep}' + '*.*d') + glob(obsfolder + f'{yearz}{os.sep}{mmddz}{os.sep}' + '*.*o')))
-    # nc_rx_name, iux = np.unique([os.path.split(r)[1][:4] for r in nc_list], return_index=1)
-    # nc_rx_namea, iua = np.unique([os.path.split(r)[1][:4] for r in nc_lista], return_index=1)
-    # nc_rx_namez, iuz = np.unique([os.path.split(r)[1][:4] for r in nc_listz], return_index=1)
-    
-    # idn = np.isin([n.lower() for n in nc_rx_name], rxn)
-    # fn_list = nc_list[iux][idn]
-    # nc_list_all = np.empty(fn_list.size, dtype=object)
-    # for i, nc_rx in enumerate(nc_rx_name):
-    #     tmp = [nc_list[np.isin(nc_rx_name, nc_rx)].item()]
-    #     ida = np.isin(nc_rx_namea, nc_rx)
-    #     if np.sum(ida) > 0:
-    #         tmp = list(nc_lista[iua][ida]) + tmp
-    #     idz = np.isin(nc_rx_namez, nc_rx)
-    #     if np.sum(idz) > 0:
-    #         tmp = tmp + list(nc_listz[iuz][idz])
-    #     nc_list_all[i] = tmp
-    
-    #Common time array
-    # if tlim is None:
-    #     delta_t = timedelta(hours=3)
-    #     t0 = date 
-    #     t1 = date + timedelta(days=1)
-    # else:
-    #     assert len(tlim) == 2
-    #     t0 = datetime.strptime('{} {}-{}'.format(year,int(doy),tlim[0]),'%Y %j-%H:%M')
-    #     t1 = datetime.strptime('{} {}-{}'.format(year,int(doy),tlim[1]),'%Y %j-%H:%M')
-    #     delta_t = timedelta(seconds=0)
-    # t = np.arange(t0-delta_t, t1+delta_t, ts, dtype='datetime64[s]') #datetime64[s]
-    # tl = t.size
-    # Nav file
-    # fsp3 = get_nav_files(navfolder, t)
-    # # Break at the beginning 
-    # assert not (fsp3==None).all(), "Cant find the sp3 file"
-    # assert (np.array([os.path.exists(f) for f in fsp3])==1).all(), "Cant find the sp3 file in the directory"
-    # # exit()
-    # args = []
-    # for i in range(nc_list_all.size):
-    #     args.append((nc_list_all[i], fsp3, t, ts, odir, use, roti_cutoff, snr_cutoff, Hipp, el_mask, window_size0, window_size1, window_size2, window_size3))
-    # t0 = datetime.now()
-    # with mp.Pool(processes=j) as pool:
-    #         # Map the square_number function to each number in the list
-    #         # The pool will distribute these calls across its processes
-    #         pool.starmap(do_one, args)
-    # print (f"It took {datetime.now()-t0} to process {nc_list_all.size} files with 8 parallel processes")
-    
