@@ -77,7 +77,7 @@ def get_nav_files(navfolder, times, v):
             
     return fsp3
 
-def do_one(fnc, fsp3, t, ts, odir, sat_bias, el_mask=30,
+def do_one(fnc, fsp3, t, ts, odir, sat_bias=None, el_mask=30,
            # roti_cutoff=0.5, snr_cutoff=30, Hipp=450, use='G',
            # window_size0=5, window_size1=30, window_size2=60, window_size3=90
            ):
@@ -107,10 +107,11 @@ def do_one(fnc, fsp3, t, ts, odir, sat_bias, el_mask=30,
         
         svlist = D.sv.values
         dcb0 = np.zeros(svlist.size)
-        sat_bias_keys = sat_bias.keys()
-        for isv, sv in enumerate(svlist):
-            if sv in sat_bias_keys:
-                dcb0[isv] = sat_bias[sv]
+        if sat_bias is not None:
+            sat_bias_keys = sat_bias.keys()
+            for isv, sv in enumerate(svlist):
+                if sv in sat_bias_keys:
+                    dcb0[isv] = sat_bias[sv]
                 
         maxjump = 1.6 + (np.sqrt(tsps) - 1)
         N0 = int((60/tsps)*window_size0)
