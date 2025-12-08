@@ -21,6 +21,7 @@ from argparse import ArgumentParser
 import warnings
 warnings.filterwarnings('ignore')
 
+E0 = 0.1
 roti_cutoff = 0.5
 snr_cutoff = 30
 Hipp = 450
@@ -119,7 +120,7 @@ def do_one(fnc, fsp3, t, ts, odir, sat_bias=None, el_mask=30,
         N2 = int((60/tsps)*window_size2)
         N3 = int((60/tsps)*window_size3)
         NROTI = int((60/tsps) * 5) # ROTI over 5 min
-        # eps = E0 * np.sqrt(30/tsps)
+        eps = E0 * np.sqrt(30/tsps)
         # TODO Correct GPST too UTC time when calling AER in pyGnss
         STEC, TEC_sigma, AER = pyGnss.getSTEC(fnc=D, fsp3=fsp3, el_mask=el_mask,
                                    maxgap=1, maxjump=maxjump, return_aer=1,
@@ -143,6 +144,7 @@ def do_one(fnc, fsp3, t, ts, odir, sat_bias=None, el_mask=30,
         O['dtec1'] = (("time", "sv"), pyGnss.getDTECsg_from_VTEC(VTEC, N=N1, order=1))
         O['dtec2'] = (("time", "sv"), pyGnss.getDTECsg_from_VTEC(VTEC, N=N2, order=1))
         O['dtec3'] = (("time", "sv"), pyGnss.getDTECsg_from_VTEC(VTEC, N=N3, order=1))
+        O['dtecp'] = (("time", "sv"), pyGnss.getDTEC2(VTEC, maxgap=1, maxjump=maxjump, eps=eps, tsps=tsps, polynom_list=np.arange(16)))
         O = O.stack(flat=["time", "sv"]).reset_index("flat").dropna(dim="flat", subset=["stec"]).unstack()
         O['time'] = ("flat", O.time.values)
         O['sv'] = ("flat", O.sv.values)
@@ -211,7 +213,7 @@ def main(date, idir, ndir, odir, rxlist, el_mask, tlim, ts, j, ionexfolder=None,
     fn_list = nc_list[iux][idn]
     nc_list_all = np.empty(fn_list.size, dtype=object)
     for i, nc_rx in enumerate(nc_rx_name):
-        tmp = [nc_list[np.isin(nc_rx_name, nc_rx)].item()]
+        tmp = [nc_list[iux][np.isin(nc_rx_name, nc_rx)].item()]
         ida = np.isin(nc_rx_namea, nc_rx)
         if np.sum(ida) > 0:
             tmp = list(nc_lista[iua][ida]) + tmp
@@ -241,7 +243,7 @@ def main(date, idir, ndir, odir, rxlist, el_mask, tlim, ts, j, ionexfolder=None,
     else:
          sat_bias = None   
             
-    odir += f"{mmdd}{os.sep}" 
+    odir += f"{year}{os.sep}{mmdd}{os.sep}" 
     if not os.path.exists(odir):
         subprocess.call(f"mkdir -p {odir}", shell=True)
         
